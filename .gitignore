@@ -160,3 +160,13 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+
+# Ignore Dataset folder and its contents
+rsna-intracranial-hemorrhage-detection/*
+v1/*
+rsna-mil-training/*
+
+raw_training_dataset.csv
+sorted_training_dataset.csv
+sorted_training_dataset_with_labels.csv
