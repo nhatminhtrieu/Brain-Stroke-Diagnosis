@@ -167,9 +167,9 @@ rsna-intracranial-hemorrhage-detection/*
 v1/*
 rsna-mil-training/*
 
-raw_training_dataset.csv
-sorted_training_dataset.csv
-sorted_training_dataset_with_labels.csv
+rsna/data_analyze/raw_training_dataset.csv
+rsna/data_analyze/sorted_training_dataset.csv
+rsna/data_analyze/sorted_training_dataset_with_labels.csv
 rsna-intracranial-hemorrhage-detection.zip
 
 dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
