@@ -175,3 +175,5 @@ rsna-intracranial-hemorrhage-detection.zip
 dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 
 .idea/
+
+vinbigdata/*
