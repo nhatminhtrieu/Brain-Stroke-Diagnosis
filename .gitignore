@@ -177,3 +177,5 @@ dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 .idea/
 
 vinbigdata/*
+
+rsna/trained_model.pth
