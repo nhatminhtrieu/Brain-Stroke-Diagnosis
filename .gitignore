@@ -179,3 +179,4 @@ dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 vinbigdata/*
 
 rsna/trained_model.pth
+rsna/result_review.txt
