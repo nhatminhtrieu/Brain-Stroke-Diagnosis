@@ -166,8 +166,10 @@ cython_debug/
 rsna-intracranial-hemorrhage-detection/*
 v1/*
 rsna-mil-training/*
+rsna-mil-training-first/*
 
 rsna/data_analyze/raw_training_dataset.csv
+rsna/data_analyze/training_1000_scan_subset_first.csv
 rsna/data_analyze/sorted_training_dataset.csv
 rsna/data_analyze/sorted_training_dataset_with_labels.csv
 rsna-intracranial-hemorrhage-detection.zip
@@ -179,4 +181,3 @@ dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 vinbigdata/*
 
 rsna/trained_model.pth
-rsna/result_review.txt
