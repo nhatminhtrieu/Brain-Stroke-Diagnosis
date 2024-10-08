@@ -179,5 +179,6 @@ dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 .idea/
 
 vinbigdata/*
-
+rsna/MNIST/*
+rsna/attention-layer/data/*
 #rsna/trained_model.pth
