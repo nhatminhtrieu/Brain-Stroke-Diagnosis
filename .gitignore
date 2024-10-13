@@ -182,3 +182,7 @@ vinbigdata/*
 rsna/MNIST/*
 rsna/attention-layer/data/*
 #rsna/trained_model.pth
+
+# Ignore HPC
+*-test.py
+*-test.sh
