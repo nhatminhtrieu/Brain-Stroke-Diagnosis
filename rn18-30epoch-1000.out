@@ -1,0 +1,68 @@
+GPUs Available: 1
+- NVIDIA A100-PCIE-40GB
+torch.Size([40, 3, 224, 224]) torch.Size([40]) 0.0
+No checkpoints found.
+Epoch 1: Loss: 0.4996, Accuracy: 84.2143%
+Validation Loss: 0.3729, Validation Accuracy: 85.2500%
+Checkpoint saved: /media02/tdhoang01/python-debugging/rsna/results/checkpoints/checkpoint_epoch_1.pth
+Epoch 2: Loss: 0.4648, Accuracy: 84.8500%
+Validation Loss: 0.3730, Validation Accuracy: 85.4167%
+Epoch 3: Loss: 0.4415, Accuracy: 85.3179%
+Validation Loss: 0.3978, Validation Accuracy: 84.9333%
+Epoch 4: Loss: 0.4077, Accuracy: 86.4321%
+Validation Loss: 0.3816, Validation Accuracy: 85.3500%
+Epoch 5: Loss: 0.3825, Accuracy: 87.6714%
+Validation Loss: 0.4082, Validation Accuracy: 83.6833%
+Epoch 6: Loss: 0.3452, Accuracy: 89.7321%
+Validation Loss: 0.5365, Validation Accuracy: 77.4333%
+Epoch 7: Loss: 0.3218, Accuracy: 90.5286%
+Validation Loss: 0.4348, Validation Accuracy: 83.8500%
+Epoch 8: Loss: 0.3030, Accuracy: 91.3821%
+Validation Loss: 0.4260, Validation Accuracy: 83.5167%
+Epoch 9: Loss: 0.2782, Accuracy: 92.8643%
+Validation Loss: 0.4920, Validation Accuracy: 84.9333%
+Epoch 10: Loss: 0.2703, Accuracy: 92.9107%
+Validation Loss: 0.5052, Validation Accuracy: 84.8500%
+Epoch 11: Loss: 0.2546, Accuracy: 93.7571%
+Validation Loss: 0.4976, Validation Accuracy: 84.4000%
+Epoch 12: Loss: 0.2528, Accuracy: 93.6036%
+Validation Loss: 0.5032, Validation Accuracy: 83.6333%
+Epoch 13: Loss: 0.2449, Accuracy: 94.3000%
+Validation Loss: 0.6169, Validation Accuracy: 84.0333%
+Epoch 14: Loss: 0.2449, Accuracy: 94.1750%
+Validation Loss: 0.5824, Validation Accuracy: 84.2833%
+Epoch 15: Loss: 0.2331, Accuracy: 94.5500%
+Validation Loss: 0.5535, Validation Accuracy: 81.7833%
+Epoch 16: Loss: 0.2354, Accuracy: 94.3750%
+Validation Loss: 0.6515, Validation Accuracy: 84.2833%
+Epoch 17: Loss: 0.2268, Accuracy: 94.8143%
+Validation Loss: 0.5907, Validation Accuracy: 83.8333%
+Epoch 18: Loss: 0.2261, Accuracy: 94.9714%
+Validation Loss: 0.6498, Validation Accuracy: 82.6833%
+Epoch 19: Loss: 0.2217, Accuracy: 95.0786%
+Validation Loss: 0.5957, Validation Accuracy: 82.9000%
+Epoch 20: Loss: 0.2238, Accuracy: 94.9607%
+Validation Loss: 0.6216, Validation Accuracy: 83.8667%
+Epoch 21: Loss: 0.2398, Accuracy: 94.3643%
+Validation Loss: 0.5995, Validation Accuracy: 82.2667%
+Epoch 22: Loss: 0.2252, Accuracy: 94.9536%
+Validation Loss: 0.5917, Validation Accuracy: 83.7500%
+Epoch 23: Loss: 0.2152, Accuracy: 95.0929%
+Validation Loss: 0.6310, Validation Accuracy: 83.9667%
+Epoch 24: Loss: 0.2146, Accuracy: 95.2357%
+Validation Loss: 0.6131, Validation Accuracy: 83.0333%
+Epoch 25: Loss: 0.2090, Accuracy: 95.3857%
+Validation Loss: 0.6280, Validation Accuracy: 83.4000%
+Epoch 26: Loss: 0.2142, Accuracy: 95.2679%
+Validation Loss: 0.6310, Validation Accuracy: 84.0000%
+Epoch 27: Loss: 0.2141, Accuracy: 95.1750%
+Validation Loss: 0.6273, Validation Accuracy: 83.3667%
+Epoch 28: Loss: 0.2129, Accuracy: 95.2179%
+Validation Loss: 0.6346, Validation Accuracy: 83.0333%
+Epoch 29: Loss: 0.2121, Accuracy: 95.3500%
+Validation Loss: 0.6310, Validation Accuracy: 83.4000%
+Epoch 30: Loss: 0.2127, Accuracy: 95.3607%
+Validation Loss: 0.6392, Validation Accuracy: 83.5333%
+Test Accuracy: 83.4000%
+Test Loss: 0.6717
+Final model saved to /media02/tdhoang01/python-debugging/rsna/results/checkpoints/final_model.pth

@@ -186,3 +186,5 @@ rsna/attention-layer/data/*
 # Ignore HPC
 *-test.py
 *-test.sh
+*.pth
+*.sh
