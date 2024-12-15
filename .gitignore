@@ -185,6 +185,8 @@ vinbigdata/*
 rsna/MNIST/*
 rsna/attention-layer/data/*
 #rsna/trained_model.pth
+stage_2_train.csv
+pixel_array_dimensions.txt
 
 # Ignore HPC
 *-test.py
