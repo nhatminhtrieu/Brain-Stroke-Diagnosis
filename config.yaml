@@ -1,7 +1,7 @@
 # Constants
 height: 256
 width: 256
-channels: 3
+channels: 1
 
 train_batch_size: 2
 valid_batch_size: 2
@@ -21,6 +21,8 @@ inducing_points: 128
 threshold: 0.5
 
 num_classes: 1
+
+projection_location: 'after_gp'
 
 target_labels:
   - intraparenchymal
