@@ -83,7 +83,7 @@ class CNN_ATT_GP(BaseModel):
 class CNN_GP_ATT(BaseModel):
     def __init__(self, params=None):
         super(CNN_GP_ATT, self).__init__(params)
-        self.attention = AttentionLayer.AttentionLayer(input_dim=512, hidden_dim=512)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=512 + 1, hidden_dim=512 + 1)
         self.classifier = nn.Linear(512 + 1, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
@@ -114,9 +114,9 @@ class CNN_GP_ATT(BaseModel):
         features = self.dropout(features)
         features = features.view(batch_size, num_instances, -1)
 
-        gp_output = self.gp_layer(features.view(batch_size * num_instances, -1))
-        gp_mean = gp_output.mean.view(batch_size, -1)
-        combine_features = torch.cat((features.view(batch_size, -1), gp_mean), dim=1)
+        gp_output = self.gp_layer(features.view(batch_size, num_instances, -1))
+        gp_mean = gp_output.mean.view(batch_size, num_instances,-1)
+        combine_features = torch.cat((features, gp_mean), dim=2)
 
         attended_features, attended_weights = self.attention(combine_features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
@@ -127,7 +127,7 @@ class CNN_GP_ATT(BaseModel):
         elif self.projection_location == 'after_attention':
             projection_output = self.projection_head(outputs)
         elif self.projection_location == 'after_gp':
-            projection_output = self.projection_head(combine_features)
+            projection_output = self.projection_head(combine_features.view(batch_size * num_instances, -1))
         else:
             raise ValueError("Invalid projection location. Choose from 'after_resnet', 'after_attention', or 'after_gp'.")
 
