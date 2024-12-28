@@ -10,7 +10,7 @@ class BaseModel(nn.Module):
             params = {}
         self.CHANNELS = params.get('channels', 1)
         self.NUM_CLASSES = params.get('num_classes', 1)
-        self.DROP_PROB = params.get('drop_prob', 0.4)
+        self.DROP_PROB = params.get('drop_prob', 0.25)
         self.INDUCING_POINTS = params.get('inducing_points', 32)
 
         self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
@@ -56,6 +56,7 @@ class CNN_ATT_GP(BaseModel):
 
         attended_features, attended_weights = self.attention(features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
+        attended_features_reshaped = self.dropout(attended_features_reshaped)
 
         gp_output = self.gp_layer(attended_features_reshaped)
         gp_mean = gp_output.mean.view(batch_size, -1)
@@ -117,6 +118,7 @@ class CNN_GP_ATT(BaseModel):
         gp_output = self.gp_layer(features.view(batch_size, num_instances, -1))
         gp_mean = gp_output.mean.view(batch_size, num_instances,-1)
         combine_features = torch.cat((features, gp_mean), dim=2)
+        combine_features = self.dropout(combine_features)
 
         attended_features, attended_weights = self.attention(combine_features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
