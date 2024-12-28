@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models
-from utils import attention as AttentionLayer, gaussian_process as GPModel
+from layers import attention as AttentionLayer, gaussian_process as GPModel
 
 class BaseModel(nn.Module):
     def __init__(self, params=None):

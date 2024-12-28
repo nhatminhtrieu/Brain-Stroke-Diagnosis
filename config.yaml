@@ -1,0 +1,29 @@
+# Constants
+height: 256
+width: 256
+channels: 3
+
+train_batch_size: 2
+valid_batch_size: 2
+test_batch_size: 2
+test_size: 0.15
+valid_size: 0.15
+
+max_slices: 60
+shape:
+  - 256
+  - 256
+  - 3
+
+num_epochs: 10
+learning_rate: 0.0001  # or use scientific notation as "1e-4"
+inducing_points: 128
+threshold: 0.5
+
+num_classes: 1
+
+target_labels:
+  - intraparenchymal
+
+model_path: 'results/trained_model.pth'
+device: 'cuda'
