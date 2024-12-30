@@ -56,7 +56,7 @@ class CNN_ATT_GP(BaseModel):
 
         attended_features, attended_weights = self.attention(features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
-        attended_features_reshaped = self.dropout(attended_features_reshaped)
+        # attended_features_reshaped = self.dropout(attended_features_reshaped)
 
         gp_output = self.gp_layer(attended_features_reshaped)
         gp_mean = gp_output.mean.view(batch_size, -1)
@@ -118,7 +118,7 @@ class CNN_GP_ATT(BaseModel):
         gp_output = self.gp_layer(features.view(batch_size, num_instances, -1))
         gp_mean = gp_output.mean.view(batch_size, num_instances,-1)
         combine_features = torch.cat((features, gp_mean), dim=2)
-        combine_features = self.dropout(combine_features)
+        # combine_features = self.dropout(combine_features)
 
         attended_features, attended_weights = self.attention(combine_features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
@@ -134,3 +134,62 @@ class CNN_GP_ATT(BaseModel):
             raise ValueError("Invalid projection location. Choose from 'after_resnet', 'after_attention', or 'after_gp'.")
 
         return outputs, attended_weights, gp_output, projection_output
+
+class SupConResnet(BaseModel):
+    def __init__(self, params=None):
+        super(SupConResnet, self).__init__(params)
+        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        self.resnet.conv1 = nn.Conv2d(in_channels=self.CHANNELS, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.fc = nn.Identity()
+
+        # Store parameters from the dictionary
+        self.projection_location = params.get('projection_location', 'after_resnet')
+        self.projection_hidden_dim = params.get('projection_hidden_dim', 256)
+        self.projection_output_dim = params.get('projection_output_dim', 128)
+        self.projection_input_dim = 512 if self.projection_location == 'after_resnet' else 513
+
+        self.projection_head = nn.Sequential(
+            nn.Linear(self.projection_input_dim, self.projection_hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.projection_hidden_dim, self.projection_output_dim)
+        )
+
+    def forward(self, bags):
+        if self.CHANNELS == 1:
+            batch_size, num_instances, c, h, w = bags.size()
+        else:
+            batch_size, num_instances, h, w, c = bags.size()
+
+        bags_flattened = bags.view(batch_size * num_instances, c, h, w)
+
+        features = self.resnet(bags_flattened)
+        features = features.view(batch_size, num_instances, -1)
+
+        if self.projection_location != 'after_resnet':
+            raise ValueError("Invalid projection location. Choose from 'after_resnet'.")
+
+        projection_output = self.projection_head(features.view(batch_size * num_instances, -1))
+
+        return projection_output, features
+
+class LinearClassifier(BaseModel):
+    def __init__(self, params=None):
+        super(LinearClassifier, self).__init__(params)
+        self.classifier = nn.Linear(512 + 1, self.NUM_CLASSES)
+
+        self.attention = AttentionLayer.AttentionLayer(input_dim=512, hidden_dim=512)
+        self.dropout = nn.Dropout(self.DROP_PROB)
+
+        inducing_points = torch.randn(self.INDUCING_POINTS, 512)
+        self.gp_layer = GPModel.GPModel(inducing_points=inducing_points)
+
+    def forward(self, features):
+        attended_features, attended_weights = self.attention(features)
+        attended_features_reshaped = attended_features.view(features.size(0), -1)
+
+        gp_output = self.gp_layer(attended_features_reshaped)
+        gp_mean = gp_output.mean.view(features.size(0), -1)
+        combine_features = torch.cat((attended_features_reshaped, gp_mean), dim=1)
+
+        return self.classifier(combine_features)
+

@@ -9,7 +9,12 @@ test_batch_size: 2
 test_size: 0.15
 valid_size: 0.15
 
-max_slices: 60
+# end_to_end, 2phases, only_phase2
+training_type: 'end_to_end'
+#training_type: '2phases'
+#training_type: 'only_phase2'
+
+max_slices: 57
 shape:
   - 256
   - 256
@@ -17,7 +22,7 @@ shape:
 
 num_epochs: 20
 learning_rate: 0.0001  # or use scientific notation as "1e-4"
-inducing_points: 128
+inducing_points: 32
 threshold: 0.5
 
 num_classes: 1
