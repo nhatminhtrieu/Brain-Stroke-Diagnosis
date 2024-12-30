@@ -23,18 +23,21 @@ class BaseModel(nn.Module):
 class CNN_ATT_GP(BaseModel):
     def __init__(self, params=None):
         super(CNN_ATT_GP, self).__init__(params)
-        self.attention = AttentionLayer.AttentionLayer(input_dim=512, hidden_dim=512)
-        self.classifier = nn.Linear(512 + 1, self.NUM_CLASSES)
+        self.attention_hidden_dim = params.get('attention_hidden_dim', 512)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim, hidden_dim=self.attention_hidden_dim)
+        self.classifier = nn.Linear(self.attention_hidden_dim, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
+        self.linear_to_8 = nn.Linear(512, 8)
 
-        inducing_points = torch.randn(self.INDUCING_POINTS, 512)
+        inducing_points = torch.randn(self.INDUCING_POINTS, 1, dtype=torch.float32)
         self.gp_layer = GPModel.GPModel(inducing_points=inducing_points)
+        # self.likelihood = GPModel.PGLikelihood()
 
         # Store parameters from the dictionary
         self.projection_location = params.get('projection_location', 'after_resnet')
         self.projection_hidden_dim = params.get('projection_hidden_dim', 256)
         self.projection_output_dim = params.get('projection_output_dim', 128)
-        self.projection_input_dim = 513 if self.projection_location == 'after_gp' else 512
+        self.projection_input_dim =  self.attention_hidden_dim
 
         self.projection_head = nn.Sequential(
             nn.Linear(self.projection_input_dim, self.projection_hidden_dim),
@@ -53,14 +56,13 @@ class CNN_ATT_GP(BaseModel):
         features = self.resnet(bags_flattened)
         features = self.dropout(features)
         features = features.view(batch_size, num_instances, -1)
+        features = self.linear_to_8(features)
 
         attended_features, attended_weights = self.attention(features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
-        # attended_features_reshaped = self.dropout(attended_features_reshaped)
 
+        attended_features_reshaped = self.classifier(attended_features_reshaped)
         gp_output = self.gp_layer(attended_features_reshaped)
-        gp_mean = gp_output.mean.view(batch_size, -1)
-        combine_features = torch.cat((attended_features_reshaped, gp_mean), dim=1)
 
         # Combine features based on the specified projection location
         if self.projection_location == 'after_resnet':
@@ -69,33 +71,27 @@ class CNN_ATT_GP(BaseModel):
         elif self.projection_location == 'after_attention':
             projection_output = self.projection_head(attended_features_reshaped)
 
-        elif self.projection_location == 'after_gp':
-            projection_output = self.projection_head(combine_features)
-
         else:
             raise ValueError("Invalid projection location. Choose from 'after_resnet', 'after_attention', or 'after_gp'.")
 
-        combine_features = self.dropout(combine_features)
-
-        outputs = torch.sigmoid(self.classifier(combine_features))
-
-        return outputs, attended_weights, gp_output, projection_output
+        return gp_output, attended_weights, None, projection_output
 
 class CNN_GP_ATT(BaseModel):
     def __init__(self, params=None):
         super(CNN_GP_ATT, self).__init__(params)
-        self.attention = AttentionLayer.AttentionLayer(input_dim=512 + 1, hidden_dim=512 + 1)
-        self.classifier = nn.Linear(512 + 1, self.NUM_CLASSES)
+        self.attention_hidden_dim = params.get('attention_hidden_dim', 512)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim + 1, hidden_dim=self.attention_hidden_dim + 1)
+        self.classifier = nn.Linear(self.attention_hidden_dim + 1, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
-        inducing_points = torch.randn(self.INDUCING_POINTS, 512)
+        inducing_points = torch.randn(self.INDUCING_POINTS, self.attention_hidden_dim)
         self.gp_layer = GPModel.GPModel(inducing_points=inducing_points)
 
         # Store parameters from the dictionary
         self.projection_location = params.get('projection_location', 'after_resnet')
         self.projection_hidden_dim = params.get('projection_hidden_dim', 256)
         self.projection_output_dim = params.get('projection_output_dim', 128)
-        self.projection_input_dim = 513 if self.projection_location == 'after_gp' else 512
+        self.projection_input_dim = self.attention_hidden_dim + 1 if self.projection_location == 'after_gp' else self.attention_hidden_dim
 
         self.projection_head = nn.Sequential(
             nn.Linear(self.projection_input_dim, self.projection_hidden_dim),
@@ -113,6 +109,7 @@ class CNN_GP_ATT(BaseModel):
 
         features = self.resnet(bags_flattened)
         features = self.dropout(features)
+
         features = features.view(batch_size, num_instances, -1)
 
         gp_output = self.gp_layer(features.view(batch_size, num_instances, -1))
@@ -175,12 +172,13 @@ class SupConResnet(BaseModel):
 class LinearClassifier(BaseModel):
     def __init__(self, params=None):
         super(LinearClassifier, self).__init__(params)
-        self.classifier = nn.Linear(512 + 1, self.NUM_CLASSES)
+        self.attention_hidden_dim = params.get('attention_hidden_dim', 512)
+        self.classifier = nn.Linear(self.attention_hidden_dim + 1, self.NUM_CLASSES)
 
-        self.attention = AttentionLayer.AttentionLayer(input_dim=512, hidden_dim=512)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim, hidden_dim=self.attention_hidden_dim)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
-        inducing_points = torch.randn(self.INDUCING_POINTS, 512)
+        inducing_points = torch.randn(self.INDUCING_POINTS, self.attention_hidden_dim)
         self.gp_layer = GPModel.GPModel(inducing_points=inducing_points)
 
     def forward(self, features):

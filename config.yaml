@@ -3,7 +3,7 @@ height: 256
 width: 256
 channels: 1
 
-train_batch_size: 4
+train_batch_size: 2
 valid_batch_size: 2
 test_batch_size: 2
 test_size: 0.15
@@ -22,12 +22,16 @@ shape:
 
 num_epochs: 20
 learning_rate: 0.0001  # or use scientific notation as "1e-4"
-inducing_points: 32
+inducing_points: 50
 threshold: 0.5
 
 num_classes: 1
 
-projection_location: 'after_gp'
+projection_location: 'after_resnet'
+projection_hidden_dim: 256
+projection_output_dim: 128
+
+attention_hidden_dim: 8
 
 target_labels:
   - intraparenchymal
