@@ -1,24 +1,25 @@
 # Constants
-height: 256
-width: 256
-channels: 1
+height: 224
+width: 224
+channels: 3
 
 train_batch_size: 2
 valid_batch_size: 2
 test_batch_size: 2
 test_size: 0.15
-valid_size: 0.15
+valid_size: 0.25
 
 # end_to_end, 2phases, only_phase2
-training_type: 'end_to_end'
+#training_type: 'end_to_end'
 #training_type: '2phases'
 #training_type: 'only_phase2'
+training_type: 'dkl'
 
 max_slices: 57
 shape:
-  - 256
-  - 256
-  - 1
+  - 224
+  - 224
+  - 3
 
 num_epochs: 20
 learning_rate: 0.0001  # or use scientific notation as "1e-4"
@@ -31,7 +32,7 @@ projection_location: 'after_resnet'
 projection_hidden_dim: 256
 projection_output_dim: 128
 
-attention_hidden_dim: 8
+attention_hidden_dim: 512
 
 target_labels:
   - intraparenchymal

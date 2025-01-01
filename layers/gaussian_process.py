@@ -1,6 +1,7 @@
 import gpytorch
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution, VariationalStrategy
+import math
 
 # class GPModel(gpytorch.models.ApproximateGP):
 #     def __init__(self, inducing_points):
@@ -74,3 +75,35 @@ class GPModel(gpytorch.models.ApproximateGP):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+class GaussianProcessLayer(gpytorch.models.ApproximateGP):
+    def __init__(self, num_dim, grid_bounds=(-10., 10.), grid_size=64):
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            num_inducing_points=grid_size, batch_shape=torch.Size([num_dim])
+        )
+
+        # Our base variational strategy is a GridInterpolationVariationalStrategy,
+        # which places variational inducing points on a Grid
+        # We wrap it with a IndependentMultitaskVariationalStrategy so that our output is a vector-valued GP
+        variational_strategy = gpytorch.variational.IndependentMultitaskVariationalStrategy(
+            gpytorch.variational.GridInterpolationVariationalStrategy(
+                self, grid_size=grid_size, grid_bounds=[grid_bounds],
+                variational_distribution=variational_distribution,
+            ), num_tasks=num_dim,
+        )
+        super().__init__(variational_strategy)
+
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(
+                lengthscale_prior=gpytorch.priors.SmoothedBoxPrior(
+                    math.exp(-1), math.exp(1), sigma=0.1, transform=torch.exp
+                )
+            )
+        )
+        self.mean_module = gpytorch.means.ConstantMean()
+        self.grid_bounds = grid_bounds
+
+    def forward(self, x):
+        mean = self.mean_module(x)
+        covar = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean, covar)
