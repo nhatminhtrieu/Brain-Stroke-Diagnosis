@@ -19,7 +19,6 @@ import math
 #         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 import torch
-import gpytorch
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import UnwhitenedVariationalStrategy
@@ -61,13 +60,13 @@ class PGLikelihood(gpytorch.likelihoods._OneDimensionalLikelihood):
 
 
 # define the actual GP model (kernels, inducing points, etc.)
-class GPModel(gpytorch.models.ApproximateGP):
+class SingletaskGPModel(gpytorch.models.ApproximateGP):
     def __init__(self, inducing_points):
         variational_distribution = gpytorch.variational.NaturalVariationalDistribution(inducing_points.size(0))
         variational_strategy = gpytorch.variational.VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
-        super(GPModel, self).__init__(variational_strategy)
+        super(SingletaskGPModel, self).__init__(variational_strategy)
         self.mean_module = gpytorch.means.ZeroMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
 
@@ -107,3 +106,38 @@ class GaussianProcessLayer(gpytorch.models.ApproximateGP):
         mean = self.mean_module(x)
         covar = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean, covar)
+
+class MultitaskGPModel(gpytorch.models.ApproximateGP):
+    def __init__(self, num_latents, num_tasks):
+        # Inducing points for each latent function
+        inducing_points = torch.rand(num_latents, 16, 1)
+
+        # Variational distribution for each latent function
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            inducing_points.size(-2), batch_shape=torch.Size([num_latents])
+        )
+
+        # LMCVariationalStrategy for multi-task output
+        variational_strategy = gpytorch.variational.LMCVariationalStrategy(
+            gpytorch.variational.VariationalStrategy(
+                self, inducing_points, variational_distribution, learn_inducing_locations=True
+            ),
+            num_tasks=num_tasks,
+            num_latents=num_latents,
+            latent_dim=-1
+        )
+
+        super().__init__(variational_strategy)
+
+        # Mean and covariance modules for each latent function
+        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([num_latents]))
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([num_latents])),
+            batch_shape=torch.Size([num_latents])
+        )
+
+    def forward(self, x):
+        # Forward pass for each latent function
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
