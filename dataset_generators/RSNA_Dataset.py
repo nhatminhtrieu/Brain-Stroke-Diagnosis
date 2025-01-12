@@ -45,15 +45,29 @@ class MedicalScanDataset:
         preprocessed_slices = self._prepare_tensor(preprocessed_slices, aug_level if self.augmentor else None)
         patient_label = torch.tensor(bool(row['patient_label']), dtype=torch.uint8)
 
-        # Extract multi-class labels for cross-entropy
-        multi_class_labels = torch.tensor([
-            1 if any(row['any']) else 0,
-            1 if any(row['epidural']) else 0,
-            1 if any(row['intraparenchymal']) else 0,
-            1 if any(row['intraventricular']) else 0,
-            1 if any(row['subarachnoid']) else 0,
-            1 if any(row['subdural']) else 0
-        ], dtype=torch.float32)
+        # # Extract multi-class labels for cross-entropy
+        # multi_class_labels = torch.tensor([
+        #     1 if any(row['any']) else 0,
+        #     1 if any(row['epidural']) else 0,
+        #     1 if any(row['intraparenchymal']) else 0,
+        #     1 if any(row['intraventricular']) else 0,
+        #     1 if any(row['subarachnoid']) else 0,
+        #     1 if any(row['subdural']) else 0
+        # ], dtype=torch.uint8)
+        multi_class_labels = torch.tensor([0, 0, 0, 0, 0, 0], dtype=torch.uint8)
+        if any(row['any']):
+            multi_class_labels[0] = 1
+        if any(row['epidural']):
+            multi_class_labels[1] = 1
+        if any(row['intraparenchymal']):
+            multi_class_labels[2] = 1
+        if any(row['intraventricular']):
+            multi_class_labels[3] = 1
+        if any(row['subarachnoid']):
+            multi_class_labels[4] = 1
+        if any(row['subdural']):
+            multi_class_labels[5] = 1
+
         return preprocessed_slices, labels, patient_label, multi_class_labels
 
     def _prepare_tensor(self, preprocessed_slices, aug_level):

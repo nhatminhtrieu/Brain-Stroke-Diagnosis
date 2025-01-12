@@ -132,24 +132,29 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
     folder_path = os.path.join(dicom_dir, folder_name)
 
     if os.path.exists(folder_path):
-        slices = read_dicom_folder(folder_path)
+        try:
+            slices = read_dicom_folder(folder_path)
 
-        preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]  # Convert to tensor
+            preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]  # Convert to tensor
 
-        # Stack preprocessed slices into an array
-        preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
+            # Stack preprocessed slices into an array
+            preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
 
-        # Labels are already in list form, so just convert them to a tensor
-        labels = torch.tensor(row['labels'], dtype=torch.long)
+            # Labels are already in list form, so just convert them to a tensor
+            labels = torch.tensor(row['labels'], dtype=torch.long)
 
-        # Fill labels with 0s if necessary
-        if len(preprocessed_slices) > len(labels):
-            padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-            padded_labels[:len(labels)] = labels
-        else:
-            padded_labels = labels[:len(preprocessed_slices)]
+            # Fill labels with 0s if necessary
+            if len(preprocessed_slices) > len(labels):
+                padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+                padded_labels[:len(labels)] = labels
+            else:
+                padded_labels = labels[:len(preprocessed_slices)]
 
-        return preprocessed_slices, padded_labels
+            return preprocessed_slices, padded_labels
+        except Exception as e:
+            print(f"Error processing patient data: {e} ; dicom_dir: {dicom_dir}, folder_name: {folder_name}")
+            return None, None
+
 
     else:
         print(f"Folder not found: {folder_name}")

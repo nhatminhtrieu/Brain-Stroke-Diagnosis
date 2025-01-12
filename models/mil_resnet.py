@@ -4,6 +4,7 @@ from torchvision import models
 from layers import attention as AttentionLayer, gaussian_process as GPModel
 import gpytorch
 
+
 class BaseModel(nn.Module):
     def __init__(self, params=None):
         super(BaseModel, self).__init__()
@@ -15,11 +16,13 @@ class BaseModel(nn.Module):
         self.INDUCING_POINTS = params.get('inducing_points', 32)
 
         self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.resnet.conv1 = nn.Conv2d(in_channels=self.CHANNELS, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.conv1 = nn.Conv2d(in_channels=self.CHANNELS, out_channels=64, kernel_size=7, stride=2, padding=3,
+                                      bias=False)
         self.resnet.fc = nn.Identity()
 
     def forward(self, bags):
         pass
+
 
 class CNN_ATT_GP(nn.Module):
     def __init__(self, params=None):
@@ -31,6 +34,7 @@ class CNN_ATT_GP(nn.Module):
         self.INDUCING_POINTS = self.params.get('inducing_points', 32)
         self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
         self.gp_type = self.params.get('gp_model', 'multi_task')  # Default to multi-task GP
+        self.kernel_type = self.params.get('kernel_type', 'rbf')
 
         # ResNet backbone
         self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
@@ -38,7 +42,8 @@ class CNN_ATT_GP(nn.Module):
         self.resnet.fc = nn.Identity()
 
         # Attention layer
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim, hidden_dim=self.attention_hidden_dim)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim,
+                                                       hidden_dim=self.attention_hidden_dim)
 
         # Linear layer to map ResNet features to attention input dimension
         self.linear_to_dim = nn.Linear(512, self.attention_hidden_dim)
@@ -52,7 +57,8 @@ class CNN_ATT_GP(nn.Module):
             self.num_tasks = self.params.get('num_tasks', 4)  # Number of tasks for multi-task GP
             self.gp_layer = GPModel.MultitaskGPModel(num_latents=self.num_latents, num_tasks=self.num_tasks)
         elif self.gp_type == 'single_task':
-            self.gp_layer = GPModel.SingletaskGPModel(inducing_points=torch.randn(self.INDUCING_POINTS, 1))
+            self.gp_layer = GPModel.SingletaskGPModel(inducing_points=torch.randn(self.INDUCING_POINTS, 1),
+                                                      kernel_type=self.kernel_type)
         else:
             raise ValueError("Invalid gp_model. Choose from 'single_task' or 'multi_task'.")
 
@@ -81,6 +87,7 @@ class CNN_ATT_GP(nn.Module):
 
         attended_features, attended_weights = self.attention(features)
         attended_features_reshaped = attended_features.view(batch_size, -1)
+        attended_features_reshaped = self.dropout(attended_features_reshaped)
 
         if self.gp_type == 'single_task':
             gp_output = self.gp_layer(self.fc(attended_features_reshaped))
@@ -97,11 +104,13 @@ class CNN_ATT_GP(nn.Module):
 
         return gp_output, attended_weights, None, projection_output
 
+
 class CNN_GP_ATT(BaseModel):
     def __init__(self, params=None):
         super(CNN_GP_ATT, self).__init__(params)
         self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim + 1, hidden_dim=self.attention_hidden_dim + 1)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim + 1,
+                                                       hidden_dim=self.attention_hidden_dim + 1)
         self.classifier = nn.Linear(self.attention_hidden_dim + 1, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
@@ -142,6 +151,7 @@ class CNN_GP_ATT(BaseModel):
 
         return outputs, attended_weights, gp_output, projection_output
 
+
 class SupConResnet(BaseModel):
     def __init__(self, params=None):
         super(SupConResnet, self).__init__(params)
@@ -166,13 +176,15 @@ class SupConResnet(BaseModel):
 
         return self.projection_head(features.view(batch_size * num_instances, -1)), features
 
+
 class LinearClassifier(BaseModel):
     def __init__(self, params=None):
         super(LinearClassifier, self).__init__(params)
         self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
         self.classifier = nn.Linear(self.attention_hidden_dim + 1, self.NUM_CLASSES)
 
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim, hidden_dim=self.attention_hidden_dim)
+        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim,
+                                                       hidden_dim=self.attention_hidden_dim)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
         self.gp_layer = GPModel.GPModel(inducing_points=torch.randn(self.INDUCING_POINTS, self.attention_hidden_dim))
@@ -187,38 +199,66 @@ class LinearClassifier(BaseModel):
 
         return self.classifier(combine_features)
 
-
-class DKLModel(gpytorch.Module):
-    def __init__(self, grid_bounds=(-10., 10.), params=None):
-        super(DKLModel, self).__init__()
-
+class CNN_ATT_GP_Multilabel(nn.Module):
+    def __init__(self, params=None):
+        super(CNN_ATT_GP_Multilabel, self).__init__()
         self.CHANNELS = params.get('channels', 1)
         self.NUM_CLASSES = params.get('num_classes', 1)
-        self.DROP_PROB = params.get('drop_prob', 0.25)
+        self.DROP_PROB = params.get('drop_prob', 0.1)
         self.INDUCING_POINTS = params.get('inducing_points', 32)
         self.ATTENTION_HIDDEN_DIM = params.get('attention_hidden_dim', 512)
 
-        self.feature_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.feature_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.feature_extractor.fc = nn.Identity()
-        self.gp_layer = GPModel.GaussianProcessLayer(num_dim=self.ATTENTION_HIDDEN_DIM, grid_bounds=grid_bounds)
-        self.grid_bounds = grid_bounds
-        self.num_dim = self.ATTENTION_HIDDEN_DIM
+        self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        self.features_extractor.fc = nn.Identity()
+        self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+                                                  bias=False)
 
-        self.scale_to_bounds = gpytorch.utils.grid.ScaleToBounds(self.grid_bounds[0], self.grid_bounds[1])
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.ATTENTION_HIDDEN_DIM, hidden_dim=self.ATTENTION_HIDDEN_DIM)
+        self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        self.attention_layers = nn.ModuleList(
+            [AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM) for _ in
+             range(self.NUM_CLASSES)])  # Create multiple attention layers
 
-    def forward(self, x):
+        self.gp_layers = nn.ModuleList([GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1)) for _ in
+                                        range(self.NUM_CLASSES)])  # Create multiple GP layers
+
+        self.drop_out = nn.Dropout(self.DROP_PROB)
+
+        # self.likelihoods = nn.ModuleList([GPModel.PGLikelihood() for _ in range(self.NUM_CLASSES)])
+        self.fc = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
+        self.fc_for_combine = nn.Linear(self.ATTENTION_HIDDEN_DIM + 1, 1)
+
+    def forward(self, bag):
         if self.CHANNELS == 1:
-            batch_size, num_instances, c, h, w = x.size()
+            batch_size, num_instances, c, h, w = bag.size()
         else:
-            batch_size, num_instances, h, w, c = x.size()
+            batch_size, num_instances, h, w, c = bag.size()
+        bag = bag.view(batch_size * num_instances, c, h, w)
 
-        features = self.feature_extractor(x.view(batch_size * num_instances, c, h, w)).view(batch_size, num_instances,
-                                                                                            -1)
-        features, _ = self.attention(features)
-        features = self.scale_to_bounds(features).transpose(-1, -2).unsqueeze(-1)
+        x = self.features_extractor(bag)  # Extract features
+        x = self.drop_out(x)
 
-        assert features.size(-1) == 1, f"Features should be 1 dimension after unsqueeze, got {features.shape}"
-        return self.gp_layer(features)
+        x = x.view(batch_size, num_instances, -1)  # Reshape for attention
+        x = self.fc_8(x)  # Pass through linear layer
 
+        # Collect outputs from all attention layers
+        att_outputs = []
+        gp_outputs = []
+
+        # Pass attention outputs through GP layer
+        for i in range(len(self.attention_layers)):
+            att_out, _ = self.attention_layers[i](x)
+            gp_out = self.gp_layers[i](self.fc(att_out))
+            att_outputs.append(att_out)
+            gp_outputs.append(gp_out)
+
+        combined_features = []
+        for i in range(len(att_outputs)):
+            # print(f'Shape of att_outputs: {att_outputs[i].shape}')
+            # print(f'Shape of gp_outputs: {gp_outputs[i].mean.shape}')
+            combine_feature = torch.cat([att_outputs[i], gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
+            combined_features.append(self.fc_for_combine(combine_feature))
+
+        combined_features = torch.cat(combined_features, dim=-1)
+        # print(f'Shape of combined_features: {combined_features.shape}')
+
+        return combined_features, gp_outputs, att_outputs
