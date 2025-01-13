@@ -24,7 +24,7 @@ shape:
   - 224
   - 3
 
-num_epochs: 50
+num_epochs: 20
 learning_rate: 0.0001  # or use scientific notation as "1e-4"
 inducing_points: 50
 threshold: 0.5
