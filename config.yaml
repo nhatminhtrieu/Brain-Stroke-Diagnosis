@@ -3,9 +3,9 @@ height: 224
 width: 224
 channels: 1
 
-train_batch_size: 2
-valid_batch_size: 2
-test_batch_size: 2
+train_batch_size: 4
+valid_batch_size: 4
+test_batch_size: 4
 test_size: 0.15
 valid_size: 0.25
 
@@ -17,7 +17,7 @@ training_type: 'end_to_end'
 
 gp_model: 'single_task'
 
-max_slices: 57
+max_slices: 28
 shape:
   - 224
   - 224

@@ -167,6 +167,7 @@ rsna-intracranial-hemorrhage-detection/*
 v1/*
 rsna-mil-training/*
 rsna-mil-training-first/*
+rsna/results/*
 
 rsna/data_analyze/raw_training_dataset.csv
 rsna/data_analyze/training_1000_scan_subset_first.csv
@@ -177,6 +178,13 @@ rsna/data_analyze/sorted_training_dataset_descending_with_labels.csv
 rsna/data_analyze/training_dataset_1.csv
 rsna/data_analyze/training_dataset_2.csv
 rsna/data_analyze/training_dataset_1_update.csv
+rsna/data_analyze/training_dataset_1_redundancy.csv
+rsna/data_analyze/training_dataset_1_update(1).csv
+rsna/data_analyze/training_dataset_1_update_.csv
+rsna/data_analyze/training_dataset_1150.csv
+rsna/data_analyze/training_dataset_1150_redundancy.csv
+rsna/data_analyze/testing_dataset_150.csv
+rsna/data_analyze/testing_dataset_150_redundancy.csv
 
 rsna-intracranial-hemorrhage-detection.zip
 
@@ -198,6 +206,7 @@ rsna-ich-mil/*
 dsmil/data/*
 
 rsna/wandb/*
+rsna/test.png
 
 # Ignore HPC
 *-test.py
