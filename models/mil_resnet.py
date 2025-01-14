@@ -31,19 +31,27 @@ class CNN_ATT_GP(nn.Module):
         self.INDUCING_POINTS = self.params.get('inducing_points', 32)
         self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
         self.gp_type = self.params.get('gp_model', 'multi_task')  # Default to multi-task GP
+        self.FEATURE_EXTRACTOR = self.params.get('feature_extractor', 'resnet18')  # Default to ResNet
 
         # ResNet backbone
-        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.resnet.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.resnet.fc = nn.Identity()
+        # self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        # self.resnet.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # self.resnet.fc = nn.Identity()
+        if self.FEATURE_EXTRACTOR == 'vgg16':
+            self.feature_extractor = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
+            self.feature_extractor.features[0] = nn.Conv2d(self.CHANNELS, 64, kernel_size=3, stride=1, padding=1)
+            self.feature_extractor.classifier = nn.Identity()
+            self.linear_to_dim = nn.Linear(512 * 7 * 7, self.attention_hidden_dim)
+        else: # Default to ResNet
+            self.feature_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            self.feature_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            self.feature_extractor.fc = nn.Identity()
+            self.linear_to_dim = nn.Linear(512, self.attention_hidden_dim)
 
         # Attention layer
         self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim, hidden_dim=self.attention_hidden_dim)
-
         # Linear layer to map ResNet features to attention input dimension
-        self.linear_to_dim = nn.Linear(512, self.attention_hidden_dim)
         self.fc = nn.Linear(self.attention_hidden_dim, self.NUM_CLASSES)
-
         self.dropout = nn.Dropout(self.DROP_PROB)
 
         # Initialize GP model based on gp_type
@@ -76,7 +84,7 @@ class CNN_ATT_GP(nn.Module):
 
         bags_flattened = bags.view(batch_size * num_instances, c, h, w)
 
-        features = self.dropout(self.resnet(bags_flattened)).view(batch_size, num_instances, -1)
+        features = self.dropout(self.feature_extractor(bags_flattened)).view(batch_size, num_instances, -1)
         features = self.linear_to_dim(features)
 
         attended_features, attended_weights = self.attention(features)
