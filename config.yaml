@@ -15,7 +15,7 @@ training_type: 'end_to_end'
 #training_type: 'only_phase2'
 #training_type: 'dkl'
 
-gp_model: 'single_task'
+gp_model: 'multi_task' # single_task, multi_task
 kernel_type: 'rbf'
 
 max_slices: 28
@@ -27,6 +27,7 @@ shape:
 num_epochs: 50
 learning_rate: 0.0001  # or use scientific notation as "1e-4"
 inducing_points: 50
+dropout: 0.5
 threshold: 0.5
 
 num_classes: 6

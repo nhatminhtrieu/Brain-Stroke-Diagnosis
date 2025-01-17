@@ -262,3 +262,47 @@ class CNN_ATT_GP_Multilabel(nn.Module):
         # print(f'Shape of combined_features: {combined_features.shape}')
 
         return combined_features, gp_outputs, att_outputs
+
+
+class CNN_ATT_GP_MIML(nn.Module):
+    def __init__(self, params=None):
+        super(CNN_ATT_GP_MIML, self).__init__()
+        self.CHANNELS = params.get('channels', 1)
+        self.NUM_CLASSES = params.get('num_classes', 1)
+        self.DROP_PROB = params.get('drop_prob', 0.5)
+        self.INDUCING_POINTS = params.get('inducing_points', 32)
+        self.ATTENTION_HIDDEN_DIM = params.get('attention_hidden_dim', 512)
+
+        self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        self.features_extractor.fc = nn.Identity()
+        self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
+                                                  bias=False)
+
+        self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+
+        self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
+        self.gp_layers = GPModel.MultitaskGPModel(num_latents=self.NUM_CLASSES, num_tasks=self.NUM_CLASSES, hidden_dim=self.ATTENTION_HIDDEN_DIM)
+        self.drop_out = nn.Dropout(self.DROP_PROB)
+        self.classifier = nn.Linear(self.ATTENTION_HIDDEN_DIM, self.NUM_CLASSES)
+        self.fc_for_gp = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
+
+
+    def forward(self, bag):
+        if self.CHANNELS == 1:
+            batch_size, num_instances, c, h, w = bag.size()
+        else:
+            batch_size, num_instances, h, w, c = bag.size()
+        bag = bag.view(batch_size * num_instances, c, h, w)
+
+        x = self.features_extractor(bag)  # Extract features
+        x = self.drop_out(x)
+
+        x = x.view(batch_size, num_instances, -1)  # Reshape for attention
+        x = self.fc_8(x)  # Pass through linear layer
+
+        att_out, att_weights = self.attention_layers(x)
+        gp_output = self.gp_layers(self.fc_for_gp(att_out))
+
+        output = self.classifier(att_out)
+        return output, gp_output, att_weights
+

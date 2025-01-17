@@ -68,27 +68,41 @@ class SingletaskGPModel(gpytorch.models.ApproximateGP):
         covar_x = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
+class MultitaskGPModel(gpytorch.models.ApproximateGP):
+    def __init__(self, num_latents, num_tasks, hidden_dim=512):
+        # Let's use a different set of inducing points for each latent function
+        inducing_points = torch.rand(num_latents, hidden_dim, 1)
 
-class MultitaskGPModel(ApproximateGP):
-    def __init__(self, inducing_points, kernel_type='rbf', nu=2.5, num_labels=10):
-        variational_distribution = gpytorch.variational.NaturalVariationalDistribution(inducing_points.size(0))
-        variational_strategy = VariationalStrategy(
-            self, inducing_points, variational_distribution, learn_inducing_locations=True
+        # We have to mark the CholeskyVariationalDistribution as batch
+        # so that we learn a variational distribution for each task
+        variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+            inducing_points.size(-2), batch_shape=torch.Size([num_latents])
         )
-        super(MultitaskGPModel, self).__init__(variational_strategy)
 
-        self.mean_module = ZeroMean()
+        # We have to wrap the VariationalStrategy in a LMCVariationalStrategy
+        # so that the output will be a MultitaskMultivariateNormal rather than a batch output
+        variational_strategy = gpytorch.variational.LMCVariationalStrategy(
+            gpytorch.variational.VariationalStrategy(
+                self, inducing_points, variational_distribution, learn_inducing_locations=True
+            ),
+            num_tasks=num_tasks,
+            num_latents=num_latents,
+            latent_dim=-1
+        )
 
-        if kernel_type == 'rbf':
-            base_kernel = RBFKernel()
-        elif kernel_type == 'matern_kernel':
-            base_kernel = MaternKernel(nu=nu)
-        else:
-            raise ValueError("kernel_type must be either 'rbf' or 'matern_kernel'")
+        super().__init__(variational_strategy)
 
-        self.covar_module = gpytorch.kernels.MultitaskKernel(base_kernel, num_tasks=num_labels, rank=1)
+        # The mean and covariance modules should be marked as batch
+        # so we learn a different set of hyperparameters
+        self.mean_module = gpytorch.means.ConstantMean(batch_shape=torch.Size([num_latents]))
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(batch_shape=torch.Size([num_latents])),
+            batch_shape=torch.Size([num_latents])
+        )
 
     def forward(self, x):
+        # The forward function should be written as if we were dealing with each output
+        # dimension in batch
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return gpytorch.distributions.MultitaskMultivariateNormal(mean_x, covar_x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
