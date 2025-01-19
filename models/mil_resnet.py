@@ -272,13 +272,25 @@ class CNN_ATT_GP_MIML(nn.Module):
         self.DROP_PROB = params.get('drop_prob', 0.5)
         self.INDUCING_POINTS = params.get('inducing_points', 32)
         self.ATTENTION_HIDDEN_DIM = params.get('attention_hidden_dim', 512)
+        self.MODEL_TYPE = params.get('model_type', 'resnet18')  # Add model_type parameter
 
-        self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.features_extractor.fc = nn.Identity()
-        self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-                                                  bias=False)
+        # Choose feature extractor based on model_type
+        if self.MODEL_TYPE == 'resnet18':
+            self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            self.features_extractor.fc = nn.Identity()
+            self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2),
+                                                      padding=(3, 3), bias=False)
+            self.feature_dim = 512  # ResNet18 feature dimension
+        elif self.MODEL_TYPE == 'vgg16':
+            self.features_extractor = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
+            self.features_extractor.classifier = nn.Identity()  # Remove the final classification layer
+            self.features_extractor.features[0] = nn.Conv2d(self.CHANNELS, 64, kernel_size=(3, 3), stride=(1, 1),
+                                                            padding=(1, 1))  # Adjust first conv layer
+            self.feature_dim = 512 * 7 * 7  # VGG16 feature dimension (after flattening)
+        else:
+            raise ValueError(f"Unsupported model_type: {self.MODEL_TYPE}")
 
-        self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
 
         self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
         self.gp_layers = GPModel.MultitaskGPModel(num_latents=self.NUM_CLASSES, num_tasks=self.NUM_CLASSES, hidden_dim=self.ATTENTION_HIDDEN_DIM)
