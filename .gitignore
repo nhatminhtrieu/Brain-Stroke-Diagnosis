@@ -168,6 +168,7 @@ v1/*
 rsna-mil-training/*
 rsna-mil-training-first/*
 rsna/results/*
+rsna/results/trained_model.pth
 
 rsna/data_analyze/raw_training_dataset.csv
 rsna/data_analyze/training_1000_scan_subset_first.csv
