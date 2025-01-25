@@ -6,7 +6,11 @@ import cv2
 from skimage.transform import resize
 
 import yaml
-with open("../config.yaml") as file:
+if os.path.exists('/media02/tdhoang01/python-debugging/config.yaml'):
+    path = '/media02/tdhoang01/python-debugging/config.yaml'
+else:
+    path = '../config.yaml'
+with open(path) as file:
     config = yaml.safe_load(file)
     
 # Accessing constants from config
