@@ -6,9 +6,10 @@ import cv2
 from skimage.transform import resize
 
 import yaml
+
 with open("../config.yaml") as file:
     config = yaml.safe_load(file)
-    
+
 # Accessing constants from config
 HEIGHT = config['height']
 WIDTH = config['width']
@@ -39,9 +40,10 @@ DEVICE = config['device']
 def correct_dcm(dcm):
     x = dcm.pixel_array + 1000
     px_mode = 4096
-    x[x>=px_mode] = x[x>=px_mode] - px_mode
+    x[x >= px_mode] = x[x >= px_mode] - px_mode
     dcm.PixelData = x.tobytes()
     dcm.RescaleIntercept = -1000
+
 
 def create_bone_mask(dcm):
     # Assuming dcm.pixel_array contains the HU values
@@ -51,6 +53,7 @@ def create_bone_mask(dcm):
     # bone_mask = (hu_values >= 1000) & (hu_values <= 1200)
     bone_mask = (hu_values >= 1000) & (hu_values <= 1200)
     return bone_mask
+
 
 def extract_bone_mask(dcm):
     # Create the bone mask
@@ -64,6 +67,7 @@ def extract_bone_mask(dcm):
     # Update the DICOM pixel data
     dcm.PixelData = hu_values.tobytes()
 
+
 def window_image(dcm, window_center, window_width):
     if (dcm.BitsStored == 12) and (dcm.PixelRepresentation == 0) and (int(dcm.RescaleIntercept) > -100):
         correct_dcm(dcm)
@@ -71,12 +75,13 @@ def window_image(dcm, window_center, window_width):
     img = dcm.pixel_array * dcm.RescaleSlope + dcm.RescaleIntercept
 
     # Resize
-    img = cv2.resize(img, SHAPE[:2], interpolation = cv2.INTER_LINEAR)
+    img = cv2.resize(img, SHAPE[:2], interpolation=cv2.INTER_LINEAR)
 
     img_min = window_center - window_width // 2
     img_max = window_center + window_width // 2
     img = np.clip(img, img_min, img_max)
     return img
+
 
 def bsb_window(dcm):
     brain_img = window_image(dcm, 40, 80)
@@ -93,6 +98,7 @@ def bsb_window(dcm):
         bsb_img = brain_img
     return bsb_img.astype(np.float16)
 
+
 def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
     # Check if type of slice is dicom or an empty numpy array
     if (type(slice) == np.ndarray):
@@ -105,6 +111,7 @@ def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
     else:
         slice = bsb_window(slice)
         return slice.astype(np.float16)
+
 
 # def read_dicom_folder(folder_path, max_slices=MAX_SLICES):
 #     # Filter and sort DICOM files directly based on ImagePositionPatient
@@ -122,11 +129,44 @@ def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
 #         slices += [black_image] * (max_slices - len(slices))
 #
 #     return slices[:max_slices]
+#
+#
+# def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
+#     patient_id = row['patient_id'].replace('ID_', '')
+#     study_instance_uid = row['study_instance_uid'].replace('ID_', '')
+#
+#     folder_name = f"{patient_id}_{study_instance_uid}"
+#     folder_path = os.path.join(dicom_dir, folder_name)
+#
+#     if os.path.exists(folder_path):
+#         slices = read_dicom_folder(folder_path)
+#
+#         preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]  # Convert to tensor
+#
+#         # Stack preprocessed slices into an array
+#         preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
+#
+#         # Labels are already in list form, so just convert them to a tensor
+#         labels = torch.tensor(row['labels'], dtype=torch.long)
+#
+#         # Fill labels with 0s if necessary
+#         if len(preprocessed_slices) > len(labels):
+#             padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+#             padded_labels[:len(labels)] = labels
+#         else:
+#             padded_labels = labels[:len(preprocessed_slices)]
+#
+#         return preprocessed_slices, padded_labels
+#
+#     else:
+#         print(f"Folder not found: {folder_name}")
+#         return None, None
 
 import os
 import pydicom
 import numpy as np
 import torch
+
 
 def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
     # Read and sort DICOM files based on ImagePositionPatient
@@ -145,6 +185,7 @@ def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
 
     return slices[:max_slices]
 
+
 def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
     patient_id = row['patient_id'].replace('ID_', '')
     study_instance_uid = row['study_instance_uid'].replace('ID_', '')
@@ -153,29 +194,29 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
     folder_path = os.path.join(dicom_dir, folder_name)
 
     if os.path.exists(folder_path):
-        try:
-            slices = read_dicom_folder(folder_path)
+        # Get the filenames from the row
+        filenames = row['filename']
 
-            preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]  # Convert to tensor
+        # Read only the specified DICOM files
+        slices = read_dicom_files(folder_path, filenames)
 
-            # Stack preprocessed slices into an array
-            preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
+        # Preprocess slices and convert to tensor
+        preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]
 
-            # Labels are already in list form, so just convert them to a tensor
-            labels = torch.tensor(row['labels'], dtype=torch.long)
+        # Stack preprocessed slices into an array
+        preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
 
-            # Fill labels with 0s if necessary
-            if len(preprocessed_slices) > len(labels):
-                padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-                padded_labels[:len(labels)] = labels
-            else:
-                padded_labels = labels[:len(preprocessed_slices)]
+        # Labels are already in list form, so just convert them to a tensor
+        labels = torch.tensor(row['labels'], dtype=torch.long)
 
-            return preprocessed_slices, padded_labels
-        except Exception as e:
-            print(f"Error processing patient data: {e} ; dicom_dir: {dicom_dir}, folder_name: {folder_name}")
-            return None, None
+        # Fill labels with 0s if necessary
+        if len(preprocessed_slices) > len(labels):
+            padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+            padded_labels[:len(labels)] = labels
+        else:
+            padded_labels = labels[:len(preprocessed_slices)]
 
+        return preprocessed_slices, padded_labels
 
     else:
         print(f"Folder not found: {folder_name}")
