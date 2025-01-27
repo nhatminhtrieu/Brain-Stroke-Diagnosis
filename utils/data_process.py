@@ -106,15 +106,37 @@ def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
         slice = bsb_window(slice)
         return slice.astype(np.float16)
 
-def read_dicom_folder(folder_path, max_slices=MAX_SLICES):
-    # Filter and sort DICOM files directly based on ImagePositionPatient
+# def read_dicom_folder(folder_path, max_slices=MAX_SLICES):
+#     # Filter and sort DICOM files directly based on ImagePositionPatient
+#     dicom_files = sorted(
+#         [f for f in os.listdir(folder_path) if f.endswith(".dcm")],
+#         key=lambda f: float(pydicom.dcmread(os.path.join(folder_path, f)).ImagePositionPatient[2])
+#     )[:max_slices]
+#
+#     # Read and store slices
+#     slices = [pydicom.dcmread(os.path.join(folder_path, f)) for f in dicom_files]
+#
+#     # Pad with black images if necessary
+#     if len(slices) < max_slices:
+#         black_image = np.zeros_like(slices[0].pixel_array)
+#         slices += [black_image] * (max_slices - len(slices))
+#
+#     return slices[:max_slices]
+
+import os
+import pydicom
+import numpy as np
+import torch
+
+def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
+    # Read and sort DICOM files based on ImagePositionPatient
     dicom_files = sorted(
-        [f for f in os.listdir(folder_path) if f.endswith(".dcm")],
-        key=lambda f: float(pydicom.dcmread(os.path.join(folder_path, f)).ImagePositionPatient[2])
+        [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
+        key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
     )[:max_slices]
 
     # Read and store slices
-    slices = [pydicom.dcmread(os.path.join(folder_path, f)) for f in dicom_files]
+    slices = [pydicom.dcmread(f) for f in dicom_files]
 
     # Pad with black images if necessary
     if len(slices) < max_slices:
@@ -122,7 +144,6 @@ def read_dicom_folder(folder_path, max_slices=MAX_SLICES):
         slices += [black_image] * (max_slices - len(slices))
 
     return slices[:max_slices]
-
 
 def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
     patient_id = row['patient_id'].replace('ID_', '')
