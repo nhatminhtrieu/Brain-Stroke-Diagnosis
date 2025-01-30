@@ -3,6 +3,7 @@ import torch.nn as nn
 from torchvision import models
 from layers import attention as AttentionLayer, gaussian_process as GPModel
 import gpytorch
+import torch.nn.functional as F
 
 
 class BaseModel(nn.Module):
@@ -199,6 +200,30 @@ class LinearClassifier(BaseModel):
 
         return self.classifier(combine_features)
 
+class MultiHeadFeatureRefiner(nn.Module):
+    def __init__(self, in_dim=512, num_heads=8, expansion=2):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(
+            embed_dim=in_dim,
+            num_heads=num_heads,
+            dropout=0.25,
+            batch_first=True
+        )
+        self.conv_branch = nn.Sequential(
+            nn.Conv1d(in_dim, in_dim*expansion, 3, padding=1),
+            nn.GELU(),
+            nn.InstanceNorm1d(in_dim*expansion),
+            nn.Conv1d(in_dim*expansion, in_dim, 1)
+        )
+        self.norm = nn.LayerNorm(in_dim)
+
+    def forward(self, x):
+        # x shape: (batch_size, num_instances, 512)
+        attn_out, _ = self.attention(x, x, x)
+        conv_out = self.conv_branch(x.permute(0,2,1)).permute(0,2,1)
+        return self.norm(attn_out + conv_out + x)
+
+
 class CNN_ATT_GP_Multilabel(nn.Module):
     def __init__(self, params=None):
         super(CNN_ATT_GP_Multilabel, self).__init__()
@@ -213,7 +238,15 @@ class CNN_ATT_GP_Multilabel(nn.Module):
         self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
                                                   bias=False)
 
-        self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        # self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        self.fc_8 = nn.Sequential(
+            nn.Linear(512, 1024),
+            nn.GELU(),
+            MultiHeadFeatureRefiner(in_dim=1024, num_heads=8, expansion=4),
+            nn.LayerNorm(1024),
+            nn.Linear(1024, self.ATTENTION_HIDDEN_DIM)
+        )
+
         self.attention_layers = nn.ModuleList(
             [AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM) for _ in
              range(self.NUM_CLASSES)])  # Create multiple attention layers
@@ -253,14 +286,10 @@ class CNN_ATT_GP_Multilabel(nn.Module):
 
         combined_features = []
         for i in range(len(att_outputs)):
-            # print(f'Shape of att_outputs: {att_outputs[i].shape}')
-            # print(f'Shape of gp_outputs: {gp_outputs[i].mean.shape}')
             combine_feature = torch.cat([att_outputs[i], gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
             combined_features.append(self.fc_for_combine(combine_feature))
 
         combined_features = torch.cat(combined_features, dim=-1)
-        # print(f'Shape of combined_features: {combined_features.shape}')
-
         return combined_features, gp_outputs, att_outputs
 
 

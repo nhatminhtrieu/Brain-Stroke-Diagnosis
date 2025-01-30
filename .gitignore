@@ -178,6 +178,9 @@ rsna/data_analyze/training_dataset_1.csv
 rsna/data_analyze/training_dataset_2.csv
 rsna/data_analyze/training_dataset_1_update.csv
 rsna/data_analyze/training_dataset_2_redundancy.csv
+rsna/data_analyze/training_dataset_1150_redundancy.csv
+rsna/data_analyze/testing_dataset_150_redundancy.csv 
+rsna/data_analyze/training_dataset_2_redundancy_1150_for_kaggle.csv
 
 rsna-intracranial-hemorrhage-detection.zip
 
@@ -199,6 +202,10 @@ rsna-ich-mil/*
 dsmil/data/*
 
 rsna/wandb/*
+rsna/results/trained_model.pth
+rsna/results/*
+rsna/wandb/latest-run 
+
 
 # Ignore HPC
 *-test.py
