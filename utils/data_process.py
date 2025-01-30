@@ -8,6 +8,8 @@ from skimage.transform import resize
 import yaml
 if os.path.exists('/media02/tdhoang01/python-debugging/config.yaml'):
     path = '/media02/tdhoang01/python-debugging/config.yaml'
+elif os.path.exists('/workspace/Brain-Stroke-Diagnosis/config.yaml'):
+    path = '/workspace/Brain-Stroke-Diagnosis/config.yaml'
 else:
     path = '../config.yaml'
 with open(path) as file:

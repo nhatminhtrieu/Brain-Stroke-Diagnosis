@@ -177,6 +177,7 @@ rsna/data_analyze/sorted_training_dataset_descending_with_labels.csv
 rsna/data_analyze/training_dataset_1.csv
 rsna/data_analyze/training_dataset_2.csv
 rsna/data_analyze/training_dataset_1_update.csv
+rsna/data_analyze/training_dataset_2_redundancy.csv
 
 rsna-intracranial-hemorrhage-detection.zip
 
