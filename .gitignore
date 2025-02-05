@@ -197,6 +197,11 @@ pixel_array_dimensions.txt
 
 cq500/archive/*
 cq500/archive.zip
+cq500/cq500.csv
+cq500/filtered_reads_without_nan.csv
+cq500/filtered_reads_with_labels.csv
+cq500/filtered_reads.csv
+cq500/dicom_counts.csv
 
 rsna-ich-mil/*
 dsmil/data/*

@@ -260,6 +260,11 @@ class CNN_ATT_GP_Multilabel(nn.Module):
         self.fc = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
         self.fc_for_combine = nn.Linear(self.ATTENTION_HIDDEN_DIM + 1, 1)
 
+        self.sequence_encoder = SequenceAwareModule(
+            input_dim=self.ATTENTION_HIDDEN_DIM,
+            hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
+        )
+
     def forward(self, bag):
         if self.CHANNELS == 1:
             batch_size, num_instances, c, h, w = bag.size()
@@ -272,6 +277,8 @@ class CNN_ATT_GP_Multilabel(nn.Module):
 
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
         x = self.fc_8(x)  # Pass through linear layer
+
+        x = self.sequence_encoder(x)
 
         # Collect outputs from all attention layers
         att_outputs = []
@@ -293,6 +300,35 @@ class CNN_ATT_GP_Multilabel(nn.Module):
         return combined_features, gp_outputs, att_outputs
 
 
+class SequenceAwareModule(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers=2):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers,
+                            bidirectional=True, batch_first=True)
+        self.position_encoder = PositionalEncoding(hidden_dim * 2)
+
+    def forward(self, x):
+        # x shape: (batch_size, num_instances, feature_dim)
+        seq_features, _ = self.lstm(x)
+        return self.position_encoder(seq_features)
+
+import math
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=500):
+        super().__init__()
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(1, max_len, d_model)
+        pe[0, :, 0::2] = torch.sin(position * div_term)
+        pe[0, :, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, :x.size(1)]
+        return x
+
+
 class CNN_ATT_GP_MIML(nn.Module):
     def __init__(self, params=None):
         super(CNN_ATT_GP_MIML, self).__init__()
@@ -310,6 +346,7 @@ class CNN_ATT_GP_MIML(nn.Module):
             self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2),
                                                       padding=(3, 3), bias=False)
             self.feature_dim = 512  # ResNet18 feature dimension
+
         elif self.MODEL_TYPE == 'vgg16':
             self.features_extractor = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
             self.features_extractor.classifier = nn.Identity()  # Remove the final classification layer
@@ -319,13 +356,26 @@ class CNN_ATT_GP_MIML(nn.Module):
         else:
             raise ValueError(f"Unsupported model_type: {self.MODEL_TYPE}")
 
-        self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        # self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        self.fc_8 = nn.Sequential(
+            nn.Linear(self.feature_dim, 1024),
+            nn.GELU(),
+            MultiHeadFeatureRefiner(in_dim=1024, num_heads=8, expansion=4),
+            nn.LayerNorm(1024),
+            nn.Linear(1024, self.ATTENTION_HIDDEN_DIM)
+        )
 
         self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
         self.gp_layers = GPModel.MultitaskGPModel(num_latents=self.NUM_CLASSES, num_tasks=self.NUM_CLASSES, hidden_dim=self.ATTENTION_HIDDEN_DIM)
         self.drop_out = nn.Dropout(self.DROP_PROB)
         self.classifier = nn.Linear(self.ATTENTION_HIDDEN_DIM, self.NUM_CLASSES)
         self.fc_for_gp = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
+
+        # Add sequence module
+        self.sequence_encoder = SequenceAwareModule(
+            input_dim=self.ATTENTION_HIDDEN_DIM,
+            hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
+        )
 
 
     def forward(self, bag):
@@ -340,6 +390,8 @@ class CNN_ATT_GP_MIML(nn.Module):
 
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
         x = self.fc_8(x)  # Pass through linear layer
+
+        x = self.sequence_encoder(x)
 
         att_out, att_weights = self.attention_layers(x)
         gp_output = self.gp_layers(self.fc_for_gp(att_out))
