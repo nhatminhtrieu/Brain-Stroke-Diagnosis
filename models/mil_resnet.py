@@ -353,6 +353,30 @@ class CNN_ATT_GP_MIML(nn.Module):
             self.features_extractor.features[0] = nn.Conv2d(self.CHANNELS, 64, kernel_size=(3, 3), stride=(1, 1),
                                                             padding=(1, 1))  # Adjust first conv layer
             self.feature_dim = 512 * 7 * 7  # VGG16 feature dimension (after flattening)
+
+        elif self.MODEL_TYPE.startswith('resnext'):
+            # Handle different ResNeXt variants
+            if self.MODEL_TYPE == 'resnext50':
+                self.features_extractor = models.resnext50_32x4d(weights=models.ResNeXt50_32X4D_Weights.DEFAULT)
+            elif self.MODEL_TYPE == 'resnext101':
+                self.features_extractor = models.resnext101_32x8d(weights=models.ResNeXt101_32X8D_Weights.DEFAULT)
+            else:
+                raise ValueError(f"Unsupported ResNeXt variant: {self.MODEL_TYPE}")
+            
+            # Modify first convolutional layer
+            self.features_extractor.conv1 = nn.Conv2d(
+                self.CHANNELS, 
+                64, 
+                kernel_size=(7, 7), 
+                stride=(2, 2),
+                padding=(3, 3), 
+                bias=False
+            )
+            # Remove final fully connected layer
+            self.features_extractor.fc = nn.Identity()
+            # Feature dimension for ResNeXt (2048 for standard variants)
+            self.feature_dim = 2048
+            
         else:
             raise ValueError(f"Unsupported model_type: {self.MODEL_TYPE}")
 
@@ -372,11 +396,10 @@ class CNN_ATT_GP_MIML(nn.Module):
         self.fc_for_gp = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
 
         # Add sequence module
-        self.sequence_encoder = SequenceAwareModule(
-            input_dim=self.ATTENTION_HIDDEN_DIM,
-            hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
-        )
-
+        # self.sequence_encoder = SequenceAwareModule(
+        #     input_dim=self.ATTENTION_HIDDEN_DIM,
+        #     hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
+        # )
 
     def forward(self, bag):
         if self.CHANNELS == 1:
@@ -391,11 +414,10 @@ class CNN_ATT_GP_MIML(nn.Module):
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
         x = self.fc_8(x)  # Pass through linear layer
 
-        x = self.sequence_encoder(x)
+        # x = self.sequence_encoder(x)
 
         att_out, att_weights = self.attention_layers(x)
         gp_output = self.gp_layers(self.fc_for_gp(att_out))
 
         output = self.classifier(att_out)
         return output, gp_output, att_weights
-
