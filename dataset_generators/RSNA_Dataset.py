@@ -30,7 +30,7 @@ class MedicalScanDataset:
 
     def _process_patient_data(self, row):
         """Process patient data to get preprocessed slices and labels."""
-        return data_process.process_patient_data(self.data_dir, row)
+        return data_process.process_patient_data(self.data_dir, row, dataset='rsna')
 
     def __len__(self):
         return len(self.dataset) * (self.augmentor.levels if self.augmentor else 1)

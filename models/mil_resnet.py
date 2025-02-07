@@ -1,55 +1,21 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import models
+from models.base_classes import BaseModel, SequenceAwareModule, PositionalEncoding, MultiHeadFeatureRefiner
 from layers import attention as AttentionLayer, gaussian_process as GPModel
 import gpytorch
-import torch.nn.functional as F
+from utils.data_process import NUM_CLASSES
 
-
-class BaseModel(nn.Module):
+class CNN_ATT_GP(BaseModel):
     def __init__(self, params=None):
-        super(BaseModel, self).__init__()
-        if params is None:
-            params = {}
-        self.CHANNELS = params.get('channels', 1)
-        self.NUM_CLASSES = params.get('num_classes', 1)
-        self.DROP_PROB = params.get('drop_prob', 0.25)
-        self.INDUCING_POINTS = params.get('inducing_points', 32)
-
-        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.resnet.conv1 = nn.Conv2d(in_channels=self.CHANNELS, out_channels=64, kernel_size=7, stride=2, padding=3,
-                                      bias=False)
-        self.resnet.fc = nn.Identity()
-
-    def forward(self, bags):
-        pass
-
-
-class CNN_ATT_GP(nn.Module):
-    def __init__(self, params=None):
-        super(CNN_ATT_GP, self).__init__()
-        self.params = params or {}
-        self.CHANNELS = self.params.get('channels', 1)
-        self.NUM_CLASSES = self.params.get('num_classes', 1)
-        self.DROP_PROB = self.params.get('drop_prob', 0.25)
-        self.INDUCING_POINTS = self.params.get('inducing_points', 32)
-        self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
-        self.gp_type = self.params.get('gp_model', 'multi_task')  # Default to multi-task GP
-        self.kernel_type = self.params.get('kernel_type', 'rbf')
-
-        # ResNet backbone
-        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.resnet.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.resnet.fc = nn.Identity()
-
-        # Attention layer
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim,
-                                                       hidden_dim=self.attention_hidden_dim)
-
-        # Linear layer to map ResNet features to attention input dimension
-        self.linear_to_dim = nn.Linear(512, self.attention_hidden_dim)
-        self.fc = nn.Linear(self.attention_hidden_dim, self.NUM_CLASSES)
-
+        super().__init__(params)
+        self.attention = AttentionLayer.Attention(self.feature_dim)
+        self.gp_layer = GPModel.ExactGPModel(
+            inducing_points=self.INDUCING_POINTS,
+            input_dim=self.feature_dim
+        )
+        self.classifier = nn.Linear(self.feature_dim, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
         # Initialize GP model based on gp_type
@@ -83,7 +49,7 @@ class CNN_ATT_GP(nn.Module):
 
         bags_flattened = bags.view(batch_size * num_instances, c, h, w)
 
-        features = self.dropout(self.resnet(bags_flattened)).view(batch_size, num_instances, -1)
+        features = self.dropout(self.features_extractor(bags_flattened)).view(batch_size, num_instances, -1)
         features = self.linear_to_dim(features)
 
         attended_features, attended_weights = self.attention(features)
@@ -108,11 +74,13 @@ class CNN_ATT_GP(nn.Module):
 
 class CNN_GP_ATT(BaseModel):
     def __init__(self, params=None):
-        super(CNN_GP_ATT, self).__init__(params)
-        self.attention_hidden_dim = self.params.get('attention_hidden_dim', 512)
-        self.attention = AttentionLayer.AttentionLayer(input_dim=self.attention_hidden_dim + 1,
-                                                       hidden_dim=self.attention_hidden_dim + 1)
-        self.classifier = nn.Linear(self.attention_hidden_dim + 1, self.NUM_CLASSES)
+        super().__init__(params)
+        self.gp_layer = GPModel.ExactGPModel(
+            inducing_points=self.INDUCING_POINTS,
+            input_dim=self.feature_dim
+        )
+        self.attention = AttentionLayer.Attention(self.feature_dim)
+        self.classifier = nn.Linear(self.feature_dim, self.NUM_CLASSES)
         self.dropout = nn.Dropout(self.DROP_PROB)
 
         self.gp_layer = GPModel.GPModel(inducing_points=torch.randn(self.INDUCING_POINTS, self.attention_hidden_dim))
@@ -136,7 +104,7 @@ class CNN_GP_ATT(BaseModel):
 
         bags_flattened = bags.view(batch_size * num_instances, c, h, w)
 
-        features = self.dropout(self.resnet(bags_flattened)).view(batch_size, num_instances, -1)
+        features = self.dropout(self.features_extractor(bags_flattened)).view(batch_size, num_instances, -1)
         gp_output = self.gp_layer(features.view(batch_size, num_instances, -1))
         gp_mean = gp_output.mean.view(batch_size, num_instances, -1)
         combine_features = torch.cat((features, gp_mean), dim=2)
@@ -155,16 +123,11 @@ class CNN_GP_ATT(BaseModel):
 
 class SupConResnet(BaseModel):
     def __init__(self, params=None):
-        super(SupConResnet, self).__init__(params)
-        self.projection_location = self.params.get('projection_location', 'after_resnet')
-        self.projection_hidden_dim = self.params.get('projection_hidden_dim', 256)
-        self.projection_output_dim = self.params.get('projection_output_dim', 128)
-        self.projection_input_dim = 512 if self.projection_location == 'after_resnet' else 513
-
+        super().__init__(params)
         self.projection_head = nn.Sequential(
-            nn.Linear(self.projection_input_dim, self.projection_hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.projection_hidden_dim, self.projection_output_dim)
+            nn.Linear(self.feature_dim, self.feature_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(self.feature_dim, 128)
         )
 
     def forward(self, bags):
@@ -200,59 +163,22 @@ class LinearClassifier(BaseModel):
 
         return self.classifier(combine_features)
 
-class MultiHeadFeatureRefiner(nn.Module):
-    def __init__(self, in_dim=512, num_heads=8, expansion=2):
-        super().__init__()
-        self.attention = nn.MultiheadAttention(
-            embed_dim=in_dim,
-            num_heads=num_heads,
-            dropout=0.25,
-            batch_first=True
-        )
-        self.conv_branch = nn.Sequential(
-            nn.Conv1d(in_dim, in_dim*expansion, 3, padding=1),
-            nn.GELU(),
-            nn.InstanceNorm1d(in_dim*expansion),
-            nn.Conv1d(in_dim*expansion, in_dim, 1)
-        )
-        self.norm = nn.LayerNorm(in_dim)
-
-    def forward(self, x):
-        # x shape: (batch_size, num_instances, 512)
-        attn_out, _ = self.attention(x, x, x)
-        conv_out = self.conv_branch(x.permute(0,2,1)).permute(0,2,1)
-        return self.norm(attn_out + conv_out + x)
-
-
-class CNN_ATT_GP_Multilabel(nn.Module):
+class CNN_ATT_GP_Multilabel(BaseModel):
     def __init__(self, params=None):
-        super(CNN_ATT_GP_Multilabel, self).__init__()
-        self.CHANNELS = params.get('channels', 1)
-        self.NUM_CLASSES = params.get('num_classes', 1)
-        self.DROP_PROB = params.get('drop_prob', 0.1)
-        self.INDUCING_POINTS = params.get('inducing_points', 32)
-        self.ATTENTION_HIDDEN_DIM = params.get('attention_hidden_dim', 512)
+        super(CNN_ATT_GP_Multilabel, self).__init__(params=params)
 
-        self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        self.features_extractor.fc = nn.Identity()
-        self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3),
-                                                  bias=False)
+        self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+    
+        if self.NUM_CLASSES != 1:
+            self.attention_layers = nn.ModuleList(
+                [AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM) for _ in
+                 range(self.NUM_CLASSES)])  # Create multiple attention layers
 
-        # self.fc_8 = nn.Linear(512, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
-        self.fc_8 = nn.Sequential(
-            nn.Linear(512, 1024),
-            nn.GELU(),
-            MultiHeadFeatureRefiner(in_dim=1024, num_heads=8, expansion=4),
-            nn.LayerNorm(1024),
-            nn.Linear(1024, self.ATTENTION_HIDDEN_DIM)
-        )
-
-        self.attention_layers = nn.ModuleList(
-            [AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM) for _ in
-             range(self.NUM_CLASSES)])  # Create multiple attention layers
-
-        self.gp_layers = nn.ModuleList([GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1)) for _ in
-                                        range(self.NUM_CLASSES)])  # Create multiple GP layers
+            self.gp_layers = nn.ModuleList([GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1)) for _ in
+                                            range(self.NUM_CLASSES)])  # Create multiple GP layers
+        else:
+            self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
+            self.gp_layers = GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1))
 
         self.drop_out = nn.Dropout(self.DROP_PROB)
 
@@ -278,107 +204,37 @@ class CNN_ATT_GP_Multilabel(nn.Module):
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
         x = self.fc_8(x)  # Pass through linear layer
 
-        x = self.sequence_encoder(x)
+        # x = self.sequence_encoder(x)
 
-        # Collect outputs from all attention layers
-        att_outputs = []
-        gp_outputs = []
+        if self.NUM_CLASSES == 1:
+            att_outputs, _ = self.attention_layers(x)
+            gp_outputs = self.gp_layers(self.fc(att_outputs))
 
-        # Pass attention outputs through GP layer
-        for i in range(len(self.attention_layers)):
-            att_out, _ = self.attention_layers[i](x)
-            gp_out = self.gp_layers[i](self.fc(att_out))
-            att_outputs.append(att_out)
-            gp_outputs.append(gp_out)
+            combined_features = torch.cat([att_outputs, gp_outputs.mean.unsqueeze(-1)], dim=-1)
+            combined_features = self.fc_for_combine(combined_features)
 
-        combined_features = []
-        for i in range(len(att_outputs)):
-            combine_feature = torch.cat([att_outputs[i], gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
-            combined_features.append(self.fc_for_combine(combine_feature))
+        else:
+            # Collect outputs from all attention layers
+            att_outputs = []
+            gp_outputs = []
+            # Pass attention outputs through GP layer
+            for i in range(len(self.attention_layers)):
+                att_out, _ = self.attention_layers[i](x)
+                gp_out = self.gp_layers[i](self.fc(att_out))
+                att_outputs.append(att_out)
+                gp_outputs.append(gp_out)
 
-        combined_features = torch.cat(combined_features, dim=-1)
+            combined_features = []
+            for i in range(len(att_outputs)):
+                combine_feature = torch.cat([att_outputs[i], gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
+                combined_features.append(self.fc_for_combine(combine_feature))
+            combined_features = torch.cat(combined_features, dim=-1)
+
         return combined_features, gp_outputs, att_outputs
-
-
-class SequenceAwareModule(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers=2):
-        super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers,
-                            bidirectional=True, batch_first=True)
-        self.position_encoder = PositionalEncoding(hidden_dim * 2)
-
-    def forward(self, x):
-        # x shape: (batch_size, num_instances, feature_dim)
-        seq_features, _ = self.lstm(x)
-        return self.position_encoder(seq_features)
-
-import math
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=500):
-        super().__init__()
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(1, max_len, d_model)
-        pe[0, :, 0::2] = torch.sin(position * div_term)
-        pe[0, :, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[:, :x.size(1)]
-        return x
-
 
 class CNN_ATT_GP_MIML(nn.Module):
     def __init__(self, params=None):
-        super(CNN_ATT_GP_MIML, self).__init__()
-        self.CHANNELS = params.get('channels', 1)
-        self.NUM_CLASSES = params.get('num_classes', 1)
-        self.DROP_PROB = params.get('drop_prob', 0.5)
-        self.INDUCING_POINTS = params.get('inducing_points', 32)
-        self.ATTENTION_HIDDEN_DIM = params.get('attention_hidden_dim', 512)
-        self.MODEL_TYPE = params.get('model_type', 'resnet18')  # Add model_type parameter
-
-        # Choose feature extractor based on model_type
-        if self.MODEL_TYPE == 'resnet18':
-            self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-            self.features_extractor.fc = nn.Identity()
-            self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=(7, 7), stride=(2, 2),
-                                                      padding=(3, 3), bias=False)
-            self.feature_dim = 512  # ResNet18 feature dimension
-
-        elif self.MODEL_TYPE == 'vgg16':
-            self.features_extractor = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
-            self.features_extractor.classifier = nn.Identity()  # Remove the final classification layer
-            self.features_extractor.features[0] = nn.Conv2d(self.CHANNELS, 64, kernel_size=(3, 3), stride=(1, 1),
-                                                            padding=(1, 1))  # Adjust first conv layer
-            self.feature_dim = 512 * 7 * 7  # VGG16 feature dimension (after flattening)
-
-        elif self.MODEL_TYPE.startswith('resnext'):
-            # Handle different ResNeXt variants
-            if self.MODEL_TYPE == 'resnext50':
-                self.features_extractor = models.resnext50_32x4d(weights=models.ResNeXt50_32X4D_Weights.DEFAULT)
-            elif self.MODEL_TYPE == 'resnext101':
-                self.features_extractor = models.resnext101_32x8d(weights=models.ResNeXt101_32X8D_Weights.DEFAULT)
-            else:
-                raise ValueError(f"Unsupported ResNeXt variant: {self.MODEL_TYPE}")
-            
-            # Modify first convolutional layer
-            self.features_extractor.conv1 = nn.Conv2d(
-                self.CHANNELS, 
-                64, 
-                kernel_size=(7, 7), 
-                stride=(2, 2),
-                padding=(3, 3), 
-                bias=False
-            )
-            # Remove final fully connected layer
-            self.features_extractor.fc = nn.Identity()
-            # Feature dimension for ResNeXt (2048 for standard variants)
-            self.feature_dim = 2048
-            
-        else:
-            raise ValueError(f"Unsupported model_type: {self.MODEL_TYPE}")
+        super(CNN_ATT_GP_MIML, self).__init__(params=params)
 
         # self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
         self.fc_8 = nn.Sequential(

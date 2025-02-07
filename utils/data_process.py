@@ -4,6 +4,7 @@ import pydicom
 import numpy as np
 import cv2
 from skimage.transform import resize
+import sys
 
 import yaml
 if os.path.exists('/media02/tdhoang01/python-debugging/config.yaml'):
@@ -190,20 +191,46 @@ def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
 
     return slices[:max_slices]
 
+def read_dicom_files_cq500(folder_path, filenames, max_slices=32):
+    # Read and sort DICOM files based on ImagePositionPatient
+    dicom_files = sorted(
+        [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
+        key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
+    )[:max_slices]
 
-def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
-    patient_id = row['patient_id'].replace('ID_', '')
-    study_instance_uid = row['study_instance_uid'].replace('ID_', '')
+    # Read and store slices
+    slices = [pydicom.dcmread(f) for f in dicom_files]
 
-    folder_name = f"{patient_id}_{study_instance_uid}"
-    folder_path = os.path.join(dicom_dir, folder_name)
+    # Pad with black images if necessary
+    if len(slices) < max_slices:
+        black_image = np.zeros_like(slices[0].pixel_array)
+        slices += [black_image] * (max_slices - len(slices))
+
+    return slices[:max_slices]
+
+
+def process_patient_data(dicom_dir, row, num_instances=12, depth=5, dataset='rsna'):
+    if dataset == 'rsna':
+        patient_id = row['patient_id'].replace('ID_', '')
+        study_instance_uid = row['study_instance_uid'].replace('ID_', '')
+
+        folder_name = f"{patient_id}_{study_instance_uid}"
+        folder_path = os.path.join(dicom_dir, folder_name)
+    else: 
+        folder_name = row['name']
+        folder_path = os.path.join('./archive', folder_name, 'Unknown Study', row['Source Folder'])
+        print(folder_path)
 
     if os.path.exists(folder_path):
         # Get the filenames from the row
         filenames = row['filename']
 
-        # Read only the specified DICOM files
-        slices = read_dicom_files(folder_path, filenames)
+        if dataset == 'rsna':
+            # Read only the specified DICOM files
+            slices = read_dicom_files(folder_path, filenames)
+        else: 
+            # Read all DICOM files in the folder
+            slices = read_dicom_files_cq500(folder_path, filenames)
 
         # Preprocess slices and convert to tensor
         preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]
@@ -211,18 +238,20 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
         # Stack preprocessed slices into an array
         preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
 
-        # Labels are already in list form, so just convert them to a tensor
-        labels = torch.tensor(row['labels'], dtype=torch.long)
+        padded_labels = None
+        if dataset == 'rsna':
+            # Labels are already in list form, so just convert them to a tensor
+            labels = torch.tensor(row['labels'], dtype=torch.long)
 
-        # Fill labels with 0s if necessary
-        if len(preprocessed_slices) > len(labels):
-            padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-            padded_labels[:len(labels)] = labels
-        else:
-            padded_labels = labels[:len(preprocessed_slices)]
+            # Fill labels with 0s if necessary
+            if len(preprocessed_slices) > len(labels):
+                padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+                padded_labels[:len(labels)] = labels
+            else:
+                padded_labels = labels[:len(preprocessed_slices)]
 
         return preprocessed_slices, padded_labels
 
     else:
         print(f"Folder not found: {folder_name}")
-        return None, None
+        sys.exit(1)

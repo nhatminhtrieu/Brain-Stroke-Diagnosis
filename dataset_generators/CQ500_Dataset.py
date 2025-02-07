@@ -1,0 +1,67 @@
+import torch
+import numpy as np
+from utils import data_process
+
+# Full Dataset
+class CQ500Dataset:
+    def __init__(self, data_dir, patient_scan_labels, augmentor=None):
+        self.data_dir = data_dir
+        self.dataset = self._parse_patient_scan_labels(patient_scan_labels)
+        self.augmentor = augmentor
+
+    def _parse_patient_scan_labels(self, patient_scan_labels):
+        """Parse and validate patient scan labels."""
+        patient_scan_labels['filename'] = patient_scan_labels['filename'].apply(
+            lambda x: eval(x) if isinstance(x, str) else x
+        )
+        # Convert multi-label columns from string representation to actual lists
+        prefix = 'patient_'
+        postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        multi_label_columns = [prefix + column for column in postfix]
+
+        for column in multi_label_columns:
+            patient_scan_labels[column] = patient_scan_labels[column].apply(
+                lambda x: eval(x) if isinstance(x, str) else x
+            )
+
+        patient_scan_labels['patient_label'] = patient_scan_labels['patient_label'].astype(bool)
+        return patient_scan_labels
+
+    def _process_patient_data(self, row):
+        """Process patient data to get preprocessed slices and labels."""
+        return data_process.process_patient_data(self.data_dir, row, dataset='cq500')
+
+    def __len__(self):
+        return len(self.dataset) * (self.augmentor.levels if self.augmentor else 1)
+
+    def __getitem__(self, idx):
+        patient_idx = idx // (self.augmentor.levels if self.augmentor else 1)
+        aug_level = idx % (self.augmentor.levels if self.augmentor else 1)
+
+        row = self.dataset.iloc[patient_idx]
+        preprocessed_slices, labels = self._process_patient_data(row)
+
+        preprocessed_slices = self._prepare_tensor(preprocessed_slices, aug_level if self.augmentor else None)
+        patient_label = torch.tensor(bool(row['patient_label']), dtype=torch.uint8)
+
+        prefix = 'patient_'
+        postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        multi_class_labels = torch.tensor([bool(row[prefix + column]) for column in postfix], dtype=torch.uint8)
+
+        return preprocessed_slices, labels, patient_label, multi_class_labels
+
+    def _prepare_tensor(self, preprocessed_slices, aug_level):
+        # Convert to numpy array and then to torch tensor
+        preprocessed_slices = np.asarray(preprocessed_slices, dtype=np.float32)
+        preprocessed_slices = torch.tensor(preprocessed_slices, dtype=torch.float32)
+
+        # Add an additional dimension for channel if it's missing (no augmentor)
+        if preprocessed_slices.ndim == 3:
+            preprocessed_slices = preprocessed_slices.unsqueeze(1)  # shape: [slices, 1, H, W]
+
+        # Apply augmentation if augmentor is specified
+        if self.augmentor and aug_level is not None:
+            if preprocessed_slices.ndim == 4:  # Ensure it has the [slices, channels, H, W] format
+                return torch.stack([self.augmentor.apply_transform(img, aug_level) for img in preprocessed_slices])
+
+        return preprocessed_slices  # Return without augmentation if augmentor is None
