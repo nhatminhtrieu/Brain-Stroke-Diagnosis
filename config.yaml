@@ -18,6 +18,7 @@ training_type: 'end_to_end'
 gp_model: 'single_task' # single_task, multi_task
 kernel_type: 'rbf'
 model_type: 'resnet18'
+contrastive_learning: 1
 
 max_slices: 28
 shape:
@@ -26,7 +27,7 @@ shape:
   - 1
 
 num_epochs: 5
-learning_rate: 0.0005  # or use scientific notation as "1e-4"
+learning_rate: 0.0005 # or use scientific notation as "1e-4"
 inducing_points: 50
 dropout: 0.5
 threshold: 0.5
