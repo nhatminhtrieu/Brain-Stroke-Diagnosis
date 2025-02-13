@@ -54,7 +54,7 @@ class SingletaskGPModel(gpytorch.models.ApproximateGP):
         )
         super(SingletaskGPModel, self).__init__(variational_strategy)
 
-        self.mean_module = gpytorch.means.ConstantMean()
+        self.mean_module = gpytorch.means.ZeroMean()
 
         if kernel_type == 'rbf':
             self.covar_module = ScaleKernel(RBFKernel())

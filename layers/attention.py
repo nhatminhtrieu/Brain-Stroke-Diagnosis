@@ -7,7 +7,7 @@ class AttentionLayer(nn.Module):
         super(AttentionLayer, self).__init__()
         self.attention = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.PReLU(),
+            nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
 

@@ -5,7 +5,6 @@ from torchvision import models
 from models.base_classes import BaseModel, SequenceAwareModule, PositionalEncoding, MultiHeadFeatureRefiner
 from layers import attention as AttentionLayer, gaussian_process as GPModel
 import gpytorch
-from utils.data_process import NUM_CLASSES
 
 class CNN_ATT_GP(BaseModel):
     def __init__(self, params=None):
@@ -182,14 +181,8 @@ class CNN_ATT_GP_Multilabel(BaseModel):
 
         self.drop_out = nn.Dropout(self.DROP_PROB)
 
-        # self.likelihoods = nn.ModuleList([GPModel.PGLikelihood() for _ in range(self.NUM_CLASSES)])
         self.fc = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
         self.fc_for_combine = nn.Linear(self.ATTENTION_HIDDEN_DIM + 1, 1)
-
-        self.sequence_encoder = SequenceAwareModule(
-            input_dim=self.ATTENTION_HIDDEN_DIM,
-            hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
-        )
 
     def forward(self, bag):
         if self.CHANNELS == 1:
@@ -203,14 +196,15 @@ class CNN_ATT_GP_Multilabel(BaseModel):
 
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
         x = self.fc_8(x)  # Pass through linear layer
-
-        # x = self.sequence_encoder(x)
+        max_pooling = torch.max(x, dim=1)[0]
 
         if self.NUM_CLASSES == 1:
             att_outputs, _ = self.attention_layers(x)
             gp_outputs = self.gp_layers(self.fc(att_outputs))
-
-            combined_features = torch.cat([att_outputs, gp_outputs.mean.unsqueeze(-1)], dim=-1)
+            # Element-wise multiplication of attention outputs and Max pooling
+            combined_features = att_outputs + max_pooling
+            combined_features = torch.cat([combined_features, gp_outputs.mean.unsqueeze(-1)], dim=-1)
+            combined_features = self.drop_out(combined_features)
             combined_features = self.fc_for_combine(combined_features)
 
         else:
@@ -232,30 +226,17 @@ class CNN_ATT_GP_Multilabel(BaseModel):
 
         return combined_features, gp_outputs, att_outputs
 
-class CNN_ATT_GP_MIML(nn.Module):
+class CNN_ATT_GP_MIML(BaseModel):
     def __init__(self, params=None):
         super(CNN_ATT_GP_MIML, self).__init__(params=params)
 
-        # self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
-        self.fc_8 = nn.Sequential(
-            nn.Linear(self.feature_dim, 1024),
-            nn.GELU(),
-            MultiHeadFeatureRefiner(in_dim=1024, num_heads=8, expansion=4),
-            nn.LayerNorm(1024),
-            nn.Linear(1024, self.ATTENTION_HIDDEN_DIM)
-        )
+        self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
 
         self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
         self.gp_layers = GPModel.MultitaskGPModel(num_latents=self.NUM_CLASSES, num_tasks=self.NUM_CLASSES, hidden_dim=self.ATTENTION_HIDDEN_DIM)
         self.drop_out = nn.Dropout(self.DROP_PROB)
         self.classifier = nn.Linear(self.ATTENTION_HIDDEN_DIM, self.NUM_CLASSES)
         self.fc_for_gp = nn.Linear(self.ATTENTION_HIDDEN_DIM, 1)
-
-        # Add sequence module
-        # self.sequence_encoder = SequenceAwareModule(
-        #     input_dim=self.ATTENTION_HIDDEN_DIM,
-        #     hidden_dim=self.ATTENTION_HIDDEN_DIM // 2
-        # )
 
     def forward(self, bag):
         if self.CHANNELS == 1:
