@@ -175,36 +175,46 @@ import torch
 
 
 def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
-    # Read and sort DICOM files based on ImagePositionPatient
-    dicom_files = sorted(
-        [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
-        key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
-    )[:max_slices]
+    try:
+        # Read and sort DICOM files based on ImagePositionPatient
+        dicom_files = sorted(
+            [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
+            key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
+        )[:max_slices]
 
-    # Read and store slices
-    slices = [pydicom.dcmread(f) for f in dicom_files]
+        # Read and store slices
+        slices = [pydicom.dcmread(f) for f in dicom_files]
 
-    # Pad with black images if necessary
-    if len(slices) < max_slices:
-        black_image = np.zeros_like(slices[0].pixel_array)
-        slices += [black_image] * (max_slices - len(slices))
+        # Pad with black images if necessary
+        if len(slices) < max_slices:
+            black_image = np.zeros_like(slices[0].pixel_array)
+            slices += [black_image] * (max_slices - len(slices))
+
+    except:
+        print(f"Error reading DICOM files in {folder_path}")
+        return []
 
     return slices[:max_slices]
 
 def read_dicom_files_cq500(folder_path, filenames, max_slices=32):
-    # Read and sort DICOM files based on ImagePositionPatient
-    dicom_files = sorted(
-        [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
-        key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
-    )[:max_slices]
+    try:
+        # Read and sort DICOM files based on ImagePositionPatient
+        dicom_files = sorted(
+            [os.path.join(folder_path, f) for f in filenames if f.endswith(".dcm")],
+            key=lambda f: float(pydicom.dcmread(f).ImagePositionPatient[2])
+        )[:max_slices]
 
-    # Read and store slices
-    slices = [pydicom.dcmread(f) for f in dicom_files]
+        # Read and store slices
+        slices = [pydicom.dcmread(f) for f in dicom_files]
 
-    # Pad with black images if necessary
-    if len(slices) < max_slices:
-        black_image = np.zeros_like(slices[0].pixel_array)
-        slices += [black_image] * (max_slices - len(slices))
+        # Pad with black images if necessary
+        if len(slices) < max_slices:
+            black_image = np.zeros_like(slices[0].pixel_array)
+            slices += [black_image] * (max_slices - len(slices))
+    # If catch an error, return an empty list
+    except:
+        print(f"Error reading DICOM files in {folder_path}")
+        return []
 
     return slices[:max_slices]
 

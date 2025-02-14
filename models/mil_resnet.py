@@ -219,8 +219,9 @@ class CNN_ATT_GP_Multilabel(BaseModel):
 
             combined_features = []
             for i in range(len(att_outputs)):
-                combined_features = torch.cat([combined_features, gp_outputs.mean.unsqueeze(-1)], dim=-1)
-                combined_features.append(self.fc_for_combine(combined_features))
+                combined_feature = max_pooling + att_outputs[i]
+                combined_feature = torch.cat([combined_feature, gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
+                combined_features.append(self.fc_for_combine(combined_feature))
             combined_features = torch.cat(combined_features, dim=-1)
 
         return combined_features, gp_outputs, att_outputs

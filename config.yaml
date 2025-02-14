@@ -3,7 +3,7 @@ height: 224
 width: 224
 channels: 1
 
-train_batch_size: 4
+train_batch_size: 8
 valid_batch_size: 16
 test_batch_size: 16
 test_size: 0.15
@@ -39,7 +39,7 @@ projection_location: 'after_gp'
 projection_hidden_dim: 256
 projection_output_dim: 128
 
-attention_hidden_dim: 512
+attention_hidden_dim: 8
 
 target_labels:
   - intraparenchymal
