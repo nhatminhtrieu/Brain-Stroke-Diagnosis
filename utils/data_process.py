@@ -101,7 +101,15 @@ def bsb_window(dcm):
     if CHANNELS == 3:
         bsb_img = np.stack([brain_img, subdural_img, soft_img], axis=-1)
     else:
-        bsb_img = brain_img
+        # bsb_img = brain_img
+        weight = [0.4, 0.3, 0.3]
+        # Create weighted grayscale composite
+        bsb_img = (brain_img * weight[0] +
+                   subdural_img * weight[1] +
+                   soft_img * weight[2])
+        # Maintain channel dimension for consistency
+        bsb_img = np.expand_dims(bsb_img, axis=-1)
+
     return bsb_img.astype(np.float16)
 
 
@@ -116,62 +124,9 @@ def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
             return slice.astype(np.float16)
     else:
         slice = bsb_window(slice)
-        return slice.astype(np.float16)
+        return slice
 
 
-# def read_dicom_folder(folder_path, max_slices=MAX_SLICES):
-#     # Filter and sort DICOM files directly based on ImagePositionPatient
-#     dicom_files = sorted(
-#         [f for f in os.listdir(folder_path) if f.endswith(".dcm")],
-#         key=lambda f: float(pydicom.dcmread(os.path.join(folder_path, f)).ImagePositionPatient[2])
-#     )[:max_slices]
-#
-#     # Read and store slices
-#     slices = [pydicom.dcmread(os.path.join(folder_path, f)) for f in dicom_files]
-#
-#     # Pad with black images if necessary
-#     if len(slices) < max_slices:
-#         black_image = np.zeros_like(slices[0].pixel_array)
-#         slices += [black_image] * (max_slices - len(slices))
-#
-#     return slices[:max_slices]
-#
-#
-# def process_patient_data(dicom_dir, row, num_instances=12, depth=5):
-#     patient_id = row['patient_id'].replace('ID_', '')
-#     study_instance_uid = row['study_instance_uid'].replace('ID_', '')
-#
-#     folder_name = f"{patient_id}_{study_instance_uid}"
-#     folder_path = os.path.join(dicom_dir, folder_name)
-#
-#     if os.path.exists(folder_path):
-#         slices = read_dicom_folder(folder_path)
-#
-#         preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]  # Convert to tensor
-#
-#         # Stack preprocessed slices into an array
-#         preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
-#
-#         # Labels are already in list form, so just convert them to a tensor
-#         labels = torch.tensor(row['labels'], dtype=torch.long)
-#
-#         # Fill labels with 0s if necessary
-#         if len(preprocessed_slices) > len(labels):
-#             padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-#             padded_labels[:len(labels)] = labels
-#         else:
-#             padded_labels = labels[:len(preprocessed_slices)]
-#
-#         return preprocessed_slices, padded_labels
-#
-#     else:
-#         print(f"Folder not found: {folder_name}")
-#         return None, None
-
-import os
-import pydicom
-import numpy as np
-import torch
 
 
 def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
@@ -211,6 +166,8 @@ def read_dicom_files_cq500(folder_path, filenames, max_slices=32):
         if len(slices) < max_slices:
             black_image = np.zeros_like(slices[0].pixel_array)
             slices += [black_image] * (max_slices - len(slices))
+
+        return slices[:max_slices]
     # If catch an error, return an empty list
     except:
         print(f"Error reading DICOM files in {folder_path}")
@@ -229,7 +186,6 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5, dataset='rsn
     else: 
         folder_name = row['name']
         folder_path = os.path.join('./archive', folder_name, 'Unknown Study', row['Source Folder'])
-        print(folder_path)
 
     if os.path.exists(folder_path):
         # Get the filenames from the row
@@ -243,22 +199,27 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5, dataset='rsn
             slices = read_dicom_files_cq500(folder_path, filenames)
 
         # Preprocess slices and convert to tensor
-        preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]
-
+        # preprocessed_slices = [torch.tensor(preprocess_slice(slice), dtype=torch.float32) for slice in slices]
+        preprocessed_slices = []
+        for slice in slices:
+            slice = torch.tensor(preprocess_slice(slice), dtype=torch.float32)
+            if slice.ndim == 2:
+                slice = slice.unsqueeze(-1)
+            preprocessed_slices.append(slice)
         # Stack preprocessed slices into an array
         preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
 
-        padded_labels = None
-        if dataset == 'rsna':
-            # Labels are already in list form, so just convert them to a tensor
-            labels = torch.tensor(row['labels'], dtype=torch.long)
-
-            # Fill labels with 0s if necessary
-            if len(preprocessed_slices) > len(labels):
-                padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-                padded_labels[:len(labels)] = labels
-            else:
-                padded_labels = labels[:len(preprocessed_slices)]
+        padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+        # if dataset == 'rsna':
+        #     # Labels are already in list form, so just convert them to a tensor
+        #     labels = torch.tensor(row['labels'], dtype=torch.long)
+        #
+        #     # Fill labels with 0s if necessary
+        #     if len(preprocessed_slices) > len(labels):
+        #         padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
+        #         padded_labels[:len(labels)] = labels
+        #     else:
+        #         padded_labels = labels[:len(preprocessed_slices)]
 
         return preprocessed_slices, padded_labels
 

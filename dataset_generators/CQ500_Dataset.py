@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+
 from utils import data_process
 
 # Full Dataset
@@ -16,7 +17,8 @@ class CQ500Dataset:
         )
         # Convert multi-label columns from string representation to actual lists
         prefix = 'patient_'
-        postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        # postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        postfix = ['ICH', "IPH", "IVH", "SDH", "EDH", "SAH"]
         multi_label_columns = [prefix + column for column in postfix]
 
         for column in multi_label_columns:
@@ -45,7 +47,8 @@ class CQ500Dataset:
         patient_label = torch.tensor(bool(row['patient_label']), dtype=torch.uint8)
 
         prefix = 'patient_'
-        postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        # postfix = ['ICH', 'IPH', 'IVH', 'SDH', 'EDH', 'SAH', 'BleedLocation-Left', 'BleedLocation-Right', 'ChronicBleed', 'Fracture', 'CalvarialFracture', 'OtherFracture', 'MassEffect', 'MidlineShift']
+        postfix = ['ICH', "IPH", "IVH", "SDH", "EDH", "SAH"]
         multi_class_labels = torch.tensor([bool(row[prefix + column]) for column in postfix], dtype=torch.uint8)
 
         return preprocessed_slices, labels, patient_label, multi_class_labels

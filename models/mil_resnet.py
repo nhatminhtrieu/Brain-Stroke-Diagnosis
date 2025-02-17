@@ -165,8 +165,8 @@ class LinearClassifier(BaseModel):
 class CNN_ATT_GP_Multilabel(BaseModel):
     def __init__(self, params=None):
         super(CNN_ATT_GP_Multilabel, self).__init__(params=params)
-
-        self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
+        self.ATTENTION_HIDDEN_DIM = self.feature_dim
+        # self.fc_8 = nn.Linear(self.feature_dim, self.ATTENTION_HIDDEN_DIM)  # Output from feature extractor
     
         if self.NUM_CLASSES != 1:
             self.attention_layers = nn.ModuleList(
@@ -185,24 +185,24 @@ class CNN_ATT_GP_Multilabel(BaseModel):
         self.fc_for_combine = nn.Linear(self.ATTENTION_HIDDEN_DIM + 1, 1)
 
     def forward(self, bag):
-        if self.CHANNELS == 1:
-            batch_size, num_instances, c, h, w = bag.size()
-        else:
-            batch_size, num_instances, h, w, c = bag.size()
+        # if self.CHANNELS == 1:
+        #     batch_size, num_instances, c, h, w = bag.size()
+        # else:
+        batch_size, num_instances, h, w, c = bag.size()
         bag = bag.view(batch_size * num_instances, c, h, w)
 
         x = self.features_extractor(bag)  # Extract features
         x = self.drop_out(x)
 
         x = x.view(batch_size, num_instances, -1)  # Reshape for attention
-        x = self.fc_8(x)  # Pass through linear layer
+        # x = self.fc_8(x)  # Pass through linear layer
         max_pooling = torch.max(x, dim=1)[0]
 
         if self.NUM_CLASSES == 1:
             att_outputs, _ = self.attention_layers(x)
             gp_outputs = self.gp_layers(self.fc(att_outputs))
-            # Element-wise multiplication of attention outputs and Max pooling
-            combined_features = att_outputs + max_pooling
+
+            combined_features = att_outputs + max_pooling # Element-wise multiplication of attention outputs and Max pooling
             combined_features = torch.cat([combined_features, gp_outputs.mean.unsqueeze(-1)], dim=-1)
             combined_features = self.fc_for_combine(combined_features)
 
@@ -219,7 +219,7 @@ class CNN_ATT_GP_Multilabel(BaseModel):
 
             combined_features = []
             for i in range(len(att_outputs)):
-                combined_feature = max_pooling + att_outputs[i]
+                combined_feature = att_outputs[i]
                 combined_feature = torch.cat([combined_feature, gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
                 combined_features.append(self.fc_for_combine(combined_feature))
             combined_features = torch.cat(combined_features, dim=-1)

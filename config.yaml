@@ -3,11 +3,11 @@ height: 224
 width: 224
 channels: 1
 
-train_batch_size: 8
-valid_batch_size: 16
-test_batch_size: 16
+train_batch_size: 2
+valid_batch_size: 4
+test_batch_size: 4
 test_size: 0.15
-valid_size: 0.25
+valid_size: 0.15
 
 # end_to_end, 2phases, only_phase2
 training_type: 'end_to_end'
@@ -26,11 +26,11 @@ shape:
   - 224
   - 1
 
-num_epochs: 20
-learning_rate: 0.0001 # or use scientific notation as "1e-4"
+num_epochs: 5
+learning_rate: 0.00005
 learning_rate_ngd: 0.01
 inducing_points: 50
-dropout: 0.5
+dropout: 0.25
 threshold: 0.5
 
 num_classes: 1
