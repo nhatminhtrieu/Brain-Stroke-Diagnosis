@@ -3,7 +3,6 @@ import torch.nn as nn
 from torchvision import models
 import math
 
-
 class VGG(nn.Module):
     def __init__(self, input_channels=3):
         super(VGG, self).__init__()
@@ -87,7 +86,6 @@ class BaseModel(nn.Module):
             self.features_extractor = VGG(input_channels=self.CHANNELS)
             self.feature_dim = 8 # VGG feature dimension (after flattening)
 
-
         elif self.MODEL_TYPE.startswith('resnext'):
             if self.MODEL_TYPE == 'resnext50':
                 self.features_extractor = models.resnext50_32x4d(weights=models.ResNeXt50_32X4D_Weights.DEFAULT)
@@ -105,51 +103,3 @@ class BaseModel(nn.Module):
 
     def forward(self, bags):
         pass
-
-
-class SequenceAwareModule(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers=2):
-        super().__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers,
-                            bidirectional=True, batch_first=True)
-        self.position_encoder = PositionalEncoding(hidden_dim * 2)
-
-    def forward(self, x):
-        seq_features, _ = self.lstm(x)
-        return self.position_encoder(seq_features)
-
-class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=500):
-        super().__init__()
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(1, max_len, d_model)
-        pe[0, :, 0::2] = torch.sin(position * div_term)
-        pe[0, :, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[:, :x.size(1)]
-        return x
-
-class MultiHeadFeatureRefiner(nn.Module):
-    def __init__(self, in_dim=512, num_heads=8, expansion=2):
-        super().__init__()
-        self.attention = nn.MultiheadAttention(
-            embed_dim=in_dim,
-            num_heads=num_heads,
-            dropout=0.25,
-            batch_first=True
-        )
-        self.conv_branch = nn.Sequential(
-            nn.Conv1d(in_dim, in_dim*expansion, 3, padding=1),
-            nn.GELU(),
-            nn.InstanceNorm1d(in_dim*expansion),
-            nn.Conv1d(in_dim*expansion, in_dim, 1)
-        )
-        self.norm = nn.LayerNorm(in_dim)
-
-    def forward(self, x):
-        attn_out, _ = self.attention(x, x, x)
-        conv_out = self.conv_branch(x.permute(0,2,1)).permute(0,2,1)
-        return self.norm(attn_out + conv_out + x)

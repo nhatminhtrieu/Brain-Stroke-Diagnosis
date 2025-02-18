@@ -3,43 +3,46 @@ height: 224
 width: 224
 channels: 1
 
-train_batch_size: 2
+train_batch_size: 4
 valid_batch_size: 4
 test_batch_size: 4
 test_size: 0.15
 valid_size: 0.15
 
 # end_to_end, 2phases, only_phase2
-training_type: 'end_to_end'
+#training_type: 'end_to_end'
+training_type: 'cnn_att'
+
 #training_type: '2phases'
 #training_type: 'only_phase2'
 #training_type: 'dkl'
 
-gp_model: 'single_task' # single_task, multi_task
+gp_model: 'single_task'
 kernel_type: 'rbf'
 model_type: 'resnet18'
 contrastive_learning: 0
 
+data_redundancy: 1
 max_slices: 28
 shape:
   - 224
   - 224
   - 1
 
-num_epochs: 5
+num_epochs: 15
 learning_rate: 0.00005
 learning_rate_ngd: 0.01
 inducing_points: 50
 dropout: 0.25
 threshold: 0.5
 
-num_classes: 1
+num_classes: 6
 
 projection_location: 'after_gp'
 projection_hidden_dim: 256
 projection_output_dim: 128
 
-attention_hidden_dim: 8
+attention_hidden_dim: 64
 
 target_labels:
   - intraparenchymal

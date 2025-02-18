@@ -50,7 +50,6 @@ def correct_dcm(dcm):
     dcm.PixelData = x.tobytes()
     dcm.RescaleIntercept = -1000
 
-
 def create_bone_mask(dcm):
     # Assuming dcm.pixel_array contains the HU values
     hu_values = dcm.pixel_array
@@ -101,14 +100,14 @@ def bsb_window(dcm):
     if CHANNELS == 3:
         bsb_img = np.stack([brain_img, subdural_img, soft_img], axis=-1)
     else:
-        # bsb_img = brain_img
-        weight = [0.4, 0.3, 0.3]
-        # Create weighted grayscale composite
-        bsb_img = (brain_img * weight[0] +
-                   subdural_img * weight[1] +
-                   soft_img * weight[2])
-        # Maintain channel dimension for consistency
-        bsb_img = np.expand_dims(bsb_img, axis=-1)
+        bsb_img = brain_img
+        # weight = [0.4, 0.3, 0.3]
+        # # Create weighted grayscale composite
+        # bsb_img = (brain_img * weight[0] +
+        #            subdural_img * weight[1] +
+        #            soft_img * weight[2])
+        # # Maintain channel dimension for consistency
+        # bsb_img = np.expand_dims(bsb_img, axis=-1)
 
     return bsb_img.astype(np.float16)
 
@@ -125,8 +124,6 @@ def preprocess_slice(slice, target_size=(HEIGHT, WIDTH)):
     else:
         slice = bsb_window(slice)
         return slice
-
-
 
 
 def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
@@ -210,16 +207,6 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5, dataset='rsn
         preprocessed_slices = torch.stack(preprocessed_slices, dim=0)  # (num_slices, height, width, channels)
 
         padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-        # if dataset == 'rsna':
-        #     # Labels are already in list form, so just convert them to a tensor
-        #     labels = torch.tensor(row['labels'], dtype=torch.long)
-        #
-        #     # Fill labels with 0s if necessary
-        #     if len(preprocessed_slices) > len(labels):
-        #         padded_labels = torch.zeros(len(preprocessed_slices), dtype=torch.long)
-        #         padded_labels[:len(labels)] = labels
-        #     else:
-        #         padded_labels = labels[:len(preprocessed_slices)]
 
         return preprocessed_slices, padded_labels
 
