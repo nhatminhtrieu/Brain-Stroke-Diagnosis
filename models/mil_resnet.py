@@ -6,6 +6,7 @@ from models.base_classes import BaseModel
 from layers import attention as AttentionLayer, gaussian_process as GPModel
 import gpytorch
 
+
 class CNN_Attention(BaseModel):
     def __init__(self, params=None):
         super(CNN_Attention, self).__init__(params=params)
@@ -88,6 +89,8 @@ class CNN_ATT_GP_Multilabel(BaseModel):
                 combined_feature = att_outputs[i]
                 combined_feature = torch.cat([combined_feature, gp_outputs[i].mean.unsqueeze(-1)], dim=-1)
                 combined_features.append(self.fc_for_combine(combined_feature))
+            # print(f'shape of combined_features: {combined_features.shape}')
             combined_features = torch.cat(combined_features, dim=-1)
+            print(f'shape of combined_features: {combined_features.shape}')
 
         return combined_features, gp_outputs, att_outputs

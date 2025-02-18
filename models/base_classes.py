@@ -72,6 +72,7 @@ class BaseModel(nn.Module):
         # Choose feature extractor based on model_type
         if self.MODEL_TYPE == 'resnet18':
             self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            # self.features_extractor = models.resnet18(weights=None)
             self.features_extractor.fc = nn.Identity()
             self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.feature_dim = 512  # ResNet18 feature dimension
