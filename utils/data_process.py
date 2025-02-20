@@ -91,11 +91,13 @@ def window_image(dcm, window_center, window_width):
 def bsb_window(dcm):
     brain_img = window_image(dcm, 40, 80)
     subdural_img = window_image(dcm, 80, 200)
-    soft_img = window_image(dcm, 40, 380)
+    # soft_img = window_image(dcm, 40, 380)
+    soft_img = window_image(dcm, 30, 30)
 
     brain_img = (brain_img - 0) / 80
     subdural_img = (subdural_img - (-20)) / 200
-    soft_img = (soft_img - (-150)) / 380
+    # soft_img = (soft_img - (-150)) / 380
+    soft_img = (soft_img - 15) / 30
 
     if CHANNELS == 3:
         bsb_img = np.stack([brain_img, subdural_img, soft_img], axis=-1)

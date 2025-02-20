@@ -49,7 +49,8 @@ class VGG(nn.Module):
         )
 
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(32 * 6 * 6, 8)
+        self.fc = nn.Linear(32 * 6 * 6, 128)
+        # self.fc = nn.Linear(32, 8)
 
     def forward(self, x):
         x = self.features(x)
@@ -72,7 +73,6 @@ class BaseModel(nn.Module):
         # Choose feature extractor based on model_type
         if self.MODEL_TYPE == 'resnet18':
             self.features_extractor = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-            # self.features_extractor = models.resnet18(weights=None)
             self.features_extractor.fc = nn.Identity()
             self.features_extractor.conv1 = nn.Conv2d(self.CHANNELS, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.feature_dim = 512  # ResNet18 feature dimension
@@ -85,7 +85,7 @@ class BaseModel(nn.Module):
 
         elif self.MODEL_TYPE == 'vgg':
             self.features_extractor = VGG(input_channels=self.CHANNELS)
-            self.feature_dim = 8 # VGG feature dimension (after flattening)
+            self.feature_dim = 128 # VGG feature dimension (after flattening)
 
         elif self.MODEL_TYPE.startswith('resnext'):
             if self.MODEL_TYPE == 'resnext50':
