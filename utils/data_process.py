@@ -150,6 +150,28 @@ def read_dicom_files(folder_path, filenames, max_slices=MAX_SLICES):
 
     return slices[:max_slices]
 
+def read_dicom_files_dong_nai(folder_path, filenames, max_slices=57):
+    try:
+        # Read and sort DICOM files based on ImagePositionPatient
+        dicom_files = sorted(
+            [os.path.join(folder_path, f) for f in filenames if f.startswith("I")],
+            key=lambda f: float(pydicom.dcmread(f).InstanceNumber)
+        )[:max_slices]
+
+        # Read and store slices
+        slices = [pydicom.dcmread(f) for f in dicom_files]
+
+        # Pad with black images if necessary
+        if len(slices) < max_slices:
+            black_image = np.zeros_like(slices[0].pixel_array)
+            slices += [black_image] * (max_slices - len(slices))
+
+        return slices[:max_slices]
+    # If catch an error, return an empty list
+    except:
+        print(f"Error reading DICOM files in {folder_path}")
+        return []
+
 def read_dicom_files_cq500(folder_path, filenames, max_slices=32):
     try:
         # Read and sort DICOM files based on ImagePositionPatient
@@ -182,19 +204,27 @@ def process_patient_data(dicom_dir, row, num_instances=12, depth=5, dataset='rsn
 
         folder_name = f"{patient_id}_{study_instance_uid}"
         folder_path = os.path.join(dicom_dir, folder_name)
-    else: 
+
+    elif dataset == 'dongnai':
+        patient_id = str(float(row['patient_id'])).rstrip('0').rstrip('.')
+        folder_name = f'S{patient_id}0'
+        folder_path = os.path.join(dicom_dir, folder_name, "S2020")
+
+    elif dataset == 'cq500':
         folder_name = row['name']
         folder_path = os.path.join('./archive', folder_name, 'Unknown Study', row['Source Folder'])
 
     if os.path.exists(folder_path):
         # Get the filenames from the row
-        filenames = row['filename']
+
 
         if dataset == 'rsna':
-            # Read only the specified DICOM files
+            filenames = row['filename']
             slices = read_dicom_files(folder_path, filenames)
-        else: 
-            # Read all DICOM files in the folder
+        elif dataset == 'dongnai':
+            slices = read_dicom_files_dong_nai(folder_path, os.listdir(folder_path))
+        else:
+            filenames = row['filename']
             slices = read_dicom_files_cq500(folder_path, filenames)
 
         # Preprocess slices and convert to tensor
