@@ -40,7 +40,7 @@ class PGLikelihood(gpytorch.likelihoods._OneDimensionalLikelihood):
         return torch.distributions.Bernoulli(probs=probs)
 
 
-class SingletaskGPModel(gpytorch.models.ApproximateGP):
+class SVGP_Model(gpytorch.models.ApproximateGP):
     def __init__(self, inducing_points, kernel_type='rbf', nu=2.5):
         """
         Args:
@@ -52,7 +52,7 @@ class SingletaskGPModel(gpytorch.models.ApproximateGP):
         variational_strategy = gpytorch.variational.VariationalStrategy(
             self, inducing_points, variational_distribution, learn_inducing_locations=True
         )
-        super(SingletaskGPModel, self).__init__(variational_strategy)
+        super(SVGP_Model, self).__init__(variational_strategy)
 
         self.mean_module = gpytorch.means.ZeroMean()
 

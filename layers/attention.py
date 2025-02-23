@@ -24,14 +24,12 @@ class GatedAttention(nn.Module):
         super(GatedAttention, self).__init__()
         self.attention = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            # nn.Tanh(),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(hidden_dim, 1)
         )
         self.gate = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            # nn.Tanh(),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(hidden_dim, 1)
         )
 
@@ -90,7 +88,7 @@ class MILAttentionLayer(nn.Module):
     def forward(self, x):
         attention_scores = self.compute_attention_scores(x)
         attention_weights = torch.softmax(attention_scores, dim=1)
-        return torch.sum(x * attention_weights, dim=1)
+        return torch.sum(x * attention_weights, dim=1), attention_weights
 
     def regularization_loss(self):
         reg_loss = 0

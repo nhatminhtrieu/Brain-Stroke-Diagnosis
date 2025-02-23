@@ -47,11 +47,11 @@ class CNN_ATT_GP_Multilabel(BaseModel):
                 [AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM) for _ in
                  range(self.NUM_CLASSES)])  # Create multiple attention layers
 
-            self.gp_layers = nn.ModuleList([GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1)) for _ in
+            self.gp_layers = nn.ModuleList([GPModel.SVGP_Model(torch.randn(self.INDUCING_POINTS, 1)) for _ in
                                             range(self.NUM_CLASSES)])  # Create multiple GP layers
         else:
             self.attention_layers = AttentionLayer.AttentionLayer(self.ATTENTION_HIDDEN_DIM, self.ATTENTION_HIDDEN_DIM)
-            self.gp_layers = GPModel.SingletaskGPModel(torch.randn(self.INDUCING_POINTS, 1))
+            self.gp_layers = GPModel.SVGP_Model(torch.randn(self.INDUCING_POINTS, 1))
 
         self.drop_out = nn.Dropout(self.DROP_PROB)
 
