@@ -11,21 +11,21 @@ class MedicalScanDataset:
 
     def _parse_patient_scan_labels(self, patient_scan_labels):
         """Parse and validate patient scan labels."""
-        patient_scan_labels['filename'] = patient_scan_labels['filename'].apply(
+        patient_scan_labels.loc[:, 'filename'] = patient_scan_labels['filename'].apply(
             lambda x: eval(x) if isinstance(x, str) else x
         )
-        patient_scan_labels['labels'] = patient_scan_labels['labels'].apply(
+        patient_scan_labels.loc[:, 'labels'] = patient_scan_labels['labels'].apply(
             lambda x: eval(x) if isinstance(x, str) else x
         )
         # Convert multi-label columns from string representation to actual lists
         multi_label_columns = ['any', 'epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural']
 
         for column in multi_label_columns:
-            patient_scan_labels[column] = patient_scan_labels[column].apply(
+            patient_scan_labels.loc[:, column] = patient_scan_labels[column].apply(
                 lambda x: eval(x) if isinstance(x, str) else x
             )
 
-        patient_scan_labels['patient_label'] = patient_scan_labels['patient_label'].astype(bool)
+        patient_scan_labels.loc[:, 'patient_label'] = patient_scan_labels['patient_label'].astype(bool)
         return patient_scan_labels
 
     def _process_patient_data(self, row):
