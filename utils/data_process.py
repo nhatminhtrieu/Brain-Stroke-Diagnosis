@@ -50,33 +50,9 @@ def correct_dcm(dcm):
     dcm.PixelData = x.tobytes()
     dcm.RescaleIntercept = -1000
 
-def create_bone_mask(dcm):
-    # Assuming dcm.pixel_array contains the HU values
-    hu_values = dcm.pixel_array
-
-    # Create a mask for bone regions
-    # bone_mask = (hu_values >= 1000) & (hu_values <= 1200)
-    bone_mask = (hu_values >= 1000) & (hu_values <= 1200)
-    return bone_mask
-
-
-def extract_bone_mask(dcm):
-    # Create the bone mask
-    bone_mask = create_bone_mask(dcm)
-
-    # Extract the bone mask from the image
-    hu_values = dcm.pixel_array.copy()
-    # hu_values[bone_mask] = 0
-    hu_values[~bone_mask] = 0
-
-    # Update the DICOM pixel data
-    dcm.PixelData = hu_values.tobytes()
-
-
 def window_image(dcm, window_center, window_width):
     if (dcm.BitsStored == 12) and (dcm.PixelRepresentation == 0) and (int(dcm.RescaleIntercept) > -100):
         correct_dcm(dcm)
-    # extract_bone_mask(dcm)
     img = dcm.pixel_array * dcm.RescaleSlope + dcm.RescaleIntercept
 
     # Resize
@@ -103,13 +79,6 @@ def bsb_window(dcm):
         bsb_img = np.stack([brain_img, subdural_img, soft_img], axis=-1)
     else:
         bsb_img = brain_img
-        # weight = [0.4, 0.3, 0.3]
-        # # Create weighted grayscale composite
-        # bsb_img = (brain_img * weight[0] +
-        #            subdural_img * weight[1] +
-        #            soft_img * weight[2])
-        # # Maintain channel dimension for consistency
-        # bsb_img = np.expand_dims(bsb_img, axis=-1)
 
     return bsb_img.astype(np.float16)
 
