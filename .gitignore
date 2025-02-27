@@ -167,17 +167,44 @@ rsna-intracranial-hemorrhage-detection/*
 v1/*
 rsna-mil-training/*
 rsna-mil-training-first/*
+rsna-ich-mil/*
+src/wandb/*
+src/results/trained_model.pth
+src/results/*
+src/wandb/latest-run
 
-rsna/data_analyze/raw_training_dataset.csv
-rsna/data_analyze/training_1000_scan_subset_first.csv
-rsna/data_analyze/sorted_training_dataset.csv
-rsna/data_analyze/sorted_training_dataset_with_labels.csv
+src/data_analyze/raw_training_dataset.csv
+src/data_analyze/training_1000_scan_subset_first.csv
+src/data_analyze/sorted_training_dataset.csv
+src/data_analyze/sorted_training_dataset_with_labels.csv
+src/data_analyze/sorted_training_dataset_descending.csv
+src/data_analyze/sorted_training_dataset_descending_with_labels.csv
+src/data_analyze/training_dataset_1150_redundancy.csv
+src/data_analyze/testing_dataset_150_redundancy.csv
+rsna/data_analyze/*.csv
+src/data/data_utils/*
+src/data/cv_data/train_features.csv
+src/data/cv_data/test_features.csv
+
+
 rsna-intracranial-hemorrhage-detection.zip
-
 dataset/MosMedData-CT-HEMORRHAGE-type VIII.zip
 
 .idea/
 
-vinbigdata/*
 
-#rsna/trained_model.pth
+cq500/archive/*
+cq500/archive.zip
+cq500/*.csv
+cq500/wandb/*
+cq500/wandb/latest-run
+
+
+
+BVDongNai2/*
+
+# Ignore HPC
+*-test.py
+*-test.sh
+*.pth
+*.sh
