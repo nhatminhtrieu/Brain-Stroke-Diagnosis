@@ -168,23 +168,23 @@ v1/*
 rsna-mil-training/*
 rsna-mil-training-first/*
 rsna-ich-mil/*
-rsna/wandb/*
-rsna/results/trained_model.pth
-rsna/results/*
-rsna/wandb/latest-run
+src/wandb/*
+src/results/trained_model.pth
+src/results/*
+src/wandb/latest-run
 
-rsna/data_analyze/raw_training_dataset.csv
-rsna/data_analyze/training_1000_scan_subset_first.csv
-rsna/data_analyze/sorted_training_dataset.csv
-rsna/data_analyze/sorted_training_dataset_with_labels.csv
-rsna/data_analyze/sorted_training_dataset_descending.csv
-rsna/data_analyze/sorted_training_dataset_descending_with_labels.csv
-rsna/data_analyze/training_dataset_1150_redundancy.csv
-rsna/data_analyze/testing_dataset_150_redundancy.csv
+src/data_analyze/raw_training_dataset.csv
+src/data_analyze/training_1000_scan_subset_first.csv
+src/data_analyze/sorted_training_dataset.csv
+src/data_analyze/sorted_training_dataset_with_labels.csv
+src/data_analyze/sorted_training_dataset_descending.csv
+src/data_analyze/sorted_training_dataset_descending_with_labels.csv
+src/data_analyze/training_dataset_1150_redundancy.csv
+src/data_analyze/testing_dataset_150_redundancy.csv
 rsna/data_analyze/*.csv
-rsna/data/data_utils/*
-rsna/data/cv_data/train_features.csv
-rsna/data/cv_data/test_features.csv
+src/data/data_utils/*
+src/data/cv_data/train_features.csv
+src/data/cv_data/test_features.csv
 
 
 rsna-intracranial-hemorrhage-detection.zip
